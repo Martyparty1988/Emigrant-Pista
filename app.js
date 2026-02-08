@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════
-   EMIGRANT PIŠTA v2.0 — Complete Game Engine
+   IMIGRANT PIŠTA v2.0 — Complete Game Engine
    Shop, Upgrades, Achievements, Skills, Story, Map
    ═══════════════════════════════════════════════════ */
 
