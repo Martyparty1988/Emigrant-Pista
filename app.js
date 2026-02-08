@@ -463,6 +463,7 @@ function checkAch(){
     if(!achUnlocked.has(a.id)&&a.cond(S)){
       achUnlocked.add(a.id);
       addLog('🏅',`Achievement: ${a.name}!`);
+      showAchToast(a);
     }
   });
   saveProgress();
@@ -537,6 +538,15 @@ function renderGame(){
   $('btn-endday').style.display=(S.taskProgress>=S.task.effort||S.actionsLeft<=0)?'flex':'none';
 
   renderBM(); renderMap(); renderFeed();
+
+  // Weather color accent
+  const wColors={Jasno:'250,204,21','Oblačno':'148,163,184','Déšť':'96,165,250',Mlha:'167,139,250','Sníh':'226,232,240','Bouřka':'129,140,248',Horko:'248,113,113'};
+  document.querySelector('.day-bar')?.style.setProperty('--weather-color',`rgba(${wColors[weather.name]||'255,255,255'},0.3)`);
+  // Progress complete state
+  const pf=$('progress-fill');
+  if(pf) pf.classList.toggle('complete',S.taskProgress>=S.task.effort);
+  // Animate HUD values
+  animateHud();
 }
 
 function uM(id,v){
@@ -568,12 +578,25 @@ function renderMap(){
   const c=$('minimap'); if(!c) return;
   const mp=shop.find(i=>i.id==='map'&&i.owned);
   const ctx=c.getContext('2d'), sz=c.width/9;
-  ctx.fillStyle='#0f1520'; ctx.fillRect(0,0,c.width,c.height);
-  ctx.strokeStyle='rgba(255,255,255,0.04)'; ctx.lineWidth=0.5;
-  for(let i=0;i<=9;i++){ctx.beginPath();ctx.moveTo(i*sz,0);ctx.lineTo(i*sz,c.height);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i*sz);ctx.lineTo(c.width,i*sz);ctx.stroke();}
-  if(mp) patrols.forEach(p=>{ctx.fillStyle='rgba(248,113,113,0.5)';ctx.beginPath();ctx.arc(p.x*sz+sz/2,p.y*sz+sz/2,sz*.8,0,Math.PI*2);ctx.fill();ctx.fillStyle='#f87171';ctx.beginPath();ctx.arc(p.x*sz+sz/2,p.y*sz+sz/2,sz*.3,0,Math.PI*2);ctx.fill();});
-  ctx.fillStyle='#fbbf24';ctx.beginPath();ctx.arc(pistaPos.x*sz+sz/2,pistaPos.y*sz+sz/2,sz*.35,0,Math.PI*2);ctx.fill();
-  ctx.strokeStyle=S.suspicion>=60?'rgba(248,113,113,0.4)':'rgba(251,191,36,0.2)';ctx.lineWidth=2;ctx.strokeRect(1,1,c.width-2,c.height-2);
+  ctx.fillStyle='#080c15'; ctx.fillRect(0,0,c.width,c.height);
+  ctx.strokeStyle='rgba(56,189,248,0.04)'; ctx.lineWidth=0.5;
+  for(let i=0;i<=9;i++){
+    ctx.beginPath(); ctx.moveTo(i*sz,0); ctx.lineTo(i*sz,c.height); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,i*sz); ctx.lineTo(c.width,i*sz); ctx.stroke();
+  }
+  if(mp) patrols.forEach(p=>{
+    const g=ctx.createRadialGradient(p.x*sz+sz/2,p.y*sz+sz/2,0,p.x*sz+sz/2,p.y*sz+sz/2,sz);
+    g.addColorStop(0,'rgba(248,113,113,0.5)'); g.addColorStop(1,'rgba(248,113,113,0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(p.x*sz+sz/2,p.y*sz+sz/2,sz,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#f87171'; ctx.beginPath(); ctx.arc(p.x*sz+sz/2,p.y*sz+sz/2,sz*.25,0,Math.PI*2); ctx.fill();
+  });
+  const pg=ctx.createRadialGradient(pistaPos.x*sz+sz/2,pistaPos.y*sz+sz/2,0,pistaPos.x*sz+sz/2,pistaPos.y*sz+sz/2,sz*.8);
+  pg.addColorStop(0,'rgba(250,204,21,0.6)'); pg.addColorStop(1,'rgba(250,204,21,0)');
+  ctx.fillStyle=pg; ctx.beginPath(); ctx.arc(pistaPos.x*sz+sz/2,pistaPos.y*sz+sz/2,sz*.8,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#facc15'; ctx.beginPath(); ctx.arc(pistaPos.x*sz+sz/2,pistaPos.y*sz+sz/2,sz*.3,0,Math.PI*2); ctx.fill();
+  const d=S.suspicion/100;
+  ctx.strokeStyle=`rgba(${Math.floor(248*d+56*(1-d))},${Math.floor(113*d+189*(1-d))},${Math.floor(113*d+248*(1-d))},0.35)`;
+  ctx.lineWidth=2; ctx.strokeRect(1,1,c.width-2,c.height-2);
 }
 
 /* ─── TABS ─── */
@@ -755,15 +778,7 @@ function animateHud(){
   prevHud={money:m,suspicion:s};
 }
 
-/* ═══ ACHIEVEMENT TOAST ═══ */
-const origCheckAch = checkAch;
-checkAch = function(){
-  const before=new Set(achUnlocked);
-  origCheckAch();
-  ACHIEVEMENTS.forEach(a=>{
-    if(achUnlocked.has(a.id)&&!before.has(a.id)) showAchToast(a);
-  });
-};
+/* Achievement toast function */
 
 function showAchToast(a){
   const t=document.createElement('div');
@@ -773,62 +788,7 @@ function showAchToast(a){
   setTimeout(()=>t.remove(),3200);
 }
 
-/* ═══ ENHANCED MINI MAP ═══ */
-const origRenderMap = renderMap;
-renderMap = function(){
-  const c=$('minimap'); if(!c) return;
-  const mp=shop.find(i=>i.id==='map'&&i.owned);
-  const ctx=c.getContext('2d'), sz=c.width/9;
-
-  // Dark bg with subtle grid
-  ctx.fillStyle='#080c15'; ctx.fillRect(0,0,c.width,c.height);
-
-  // Grid with slight glow
-  ctx.strokeStyle='rgba(56,189,248,0.04)'; ctx.lineWidth=0.5;
-  for(let i=0;i<=9;i++){
-    ctx.beginPath(); ctx.moveTo(i*sz,0); ctx.lineTo(i*sz,c.height); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0,i*sz); ctx.lineTo(c.width,i*sz); ctx.stroke();
-  }
-
-  // Patrols with glow
-  if(mp) patrols.forEach(p=>{
-    const grd=ctx.createRadialGradient(p.x*sz+sz/2,p.y*sz+sz/2,0,p.x*sz+sz/2,p.y*sz+sz/2,sz);
-    grd.addColorStop(0,'rgba(248,113,113,0.5)');
-    grd.addColorStop(1,'rgba(248,113,113,0)');
-    ctx.fillStyle=grd;
-    ctx.beginPath(); ctx.arc(p.x*sz+sz/2,p.y*sz+sz/2,sz,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#f87171';
-    ctx.beginPath(); ctx.arc(p.x*sz+sz/2,p.y*sz+sz/2,sz*.25,0,Math.PI*2); ctx.fill();
-  });
-
-  // Pišta with glow
-  const grd=ctx.createRadialGradient(pistaPos.x*sz+sz/2,pistaPos.y*sz+sz/2,0,pistaPos.x*sz+sz/2,pistaPos.y*sz+sz/2,sz*.8);
-  grd.addColorStop(0,'rgba(250,204,21,0.6)');
-  grd.addColorStop(1,'rgba(250,204,21,0)');
-  ctx.fillStyle=grd;
-  ctx.beginPath(); ctx.arc(pistaPos.x*sz+sz/2,pistaPos.y*sz+sz/2,sz*.8,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle='#facc15';
-  ctx.beginPath(); ctx.arc(pistaPos.x*sz+sz/2,pistaPos.y*sz+sz/2,sz*.3,0,Math.PI*2); ctx.fill();
-
-  // Dynamic border
-  const danger=S.suspicion/100;
-  ctx.strokeStyle=`rgba(${Math.floor(248*danger+56*(1-danger))},${Math.floor(113*danger+189*(1-danger))},${Math.floor(113*danger+248*(1-danger))},0.35)`;
-  ctx.lineWidth=2; ctx.strokeRect(1,1,c.width-2,c.height-2);
-};
-
-/* ═══ WEATHER COLOR ACCENT ═══ */
-const origRenderGame = renderGame;
-renderGame = function(){
-  origRenderGame();
-  // Set weather color CSS var
-  const colors={Jasno:'250,204,21',Oblačno:'148,163,184',Déšť:'96,165,250',Mlha:'167,139,250',Sníh:'226,232,240',Bouřka:'129,140,248',Horko:'248,113,113'};
-  document.querySelector('.day-bar')?.style.setProperty('--weather-color',`rgba(${colors[weather.name]||'255,255,255'},0.3)`);
-  // Progress complete state
-  const pf=$('progress-fill');
-  if(pf) pf.classList.toggle('complete',S.taskProgress>=S.task.effort);
-  // Animate HUD
-  animateHud();
-};
+/* Weather colors handled in renderGame */
 
 /* ═══ BOOT ═══ */
 document.addEventListener('DOMContentLoaded',()=>{
