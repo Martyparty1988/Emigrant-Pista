@@ -584,9 +584,11 @@ const Q_COMBO=[
 ];
 function rndQ(arr){return arr[Math.floor(Math.random()*arr.length)];}
 let lastMilestone=0;
+let _lsc=-1,_lcn=-1;
 function updateHUD(){
-  document.getElementById('h-score').textContent=score;
-  document.getElementById('h-coins').textContent=coins;
+  const hs=document.getElementById('h-score'),hc=document.getElementById('h-coins');
+  if(score!==_lsc){hs.textContent=score;_lsc=score;const p=document.getElementById('hud-score');p.classList.remove('pop');void p.offsetWidth;p.classList.add('pop');}
+  if(coins!==_lcn){hc.textContent=coins;_lcn=coins;const p=document.getElementById('hud-coins');p.classList.remove('pop');void p.offsetWidth;p.classList.add('pop');}
   document.getElementById('h-best').textContent=S.best;
   const cd=document.getElementById('combo');
   if(combo>=3&&comboT>0){cd.textContent=combo+'x!';if(!cd.classList.contains('show')){cd.classList.add('show');setTimeout(()=>cd.classList.remove('show'),800);}}
@@ -617,7 +619,12 @@ function showMenu(isDeath){
   document.getElementById('hud').style.display='none';
 }
 function showZone(name){const b=document.getElementById('zone-banner');b.textContent='📍 '+name;b.classList.add('show');setTimeout(()=>b.classList.remove('show'),3000);}
-function showToast(txt){const t=document.createElement('div');t.className='toast';t.innerHTML=txt;document.body.appendChild(t);setTimeout(()=>t.remove(),3000);}
+let toastQ=[];
+function showToast(txt){
+  // Remove existing toast if any, then show new
+  document.querySelectorAll('.toast').forEach(t=>t.remove());
+  const t=document.createElement('div');t.className='toast';t.innerHTML=txt;document.body.appendChild(t);setTimeout(()=>t.remove(),3000);
+}
 
 /* ─── SHOP ─── */
 function openShop(){document.getElementById('shop-panel').classList.add('open');renderShop();}
