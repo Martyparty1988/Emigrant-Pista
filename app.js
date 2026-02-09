@@ -744,19 +744,24 @@ function animateParticles(){
   requestAnimationFrame(animateParticles);
 }
 
-/* ═══ RIPPLE EFFECT ═══ */
-document.addEventListener('pointerdown',e=>{
+/* ═══ RIPPLE EFFECT (iOS-safe) ═══ */
+document.addEventListener('click',e=>{
   const btn=e.target.closest('.action-btn,.btn,.shop-buy-btn,.skill-btn,.bm-buy,.tab-btn');
   if(!btn||btn.disabled) return;
-  const r=document.createElement('span');
-  r.className='ripple';
-  const rect=btn.getBoundingClientRect();
-  const sz=Math.max(rect.width,rect.height)*2;
-  r.style.width=r.style.height=sz+'px';
-  r.style.left=(e.clientX-rect.left-sz/2)+'px';
-  r.style.top=(e.clientY-rect.top-sz/2)+'px';
-  btn.appendChild(r);
-  r.addEventListener('animationend',()=>r.remove());
+  requestAnimationFrame(()=>{
+    const r=document.createElement('span');
+    r.className='ripple';
+    const rect=btn.getBoundingClientRect();
+    const sz=Math.max(rect.width,rect.height)*2;
+    Object.assign(r.style,{
+      width:sz+'px', height:sz+'px',
+      left:(e.clientX-rect.left-sz/2)+'px',
+      top:(e.clientY-rect.top-sz/2)+'px',
+      pointerEvents:'none', touchAction:'none'
+    });
+    btn.appendChild(r);
+    r.addEventListener('animationend',()=>r.remove());
+  });
 });
 
 /* ═══ ANIMATED HUD VALUES ═══ */

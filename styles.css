@@ -31,8 +31,9 @@
 }
 
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; -webkit-touch-callout:none; }
-html, body { width:100%; height:100%; overflow:hidden; background:var(--bg-dark); color:var(--text-primary); font-family:'Rajdhani',sans-serif; user-select:none; -webkit-user-select:none; overscroll-behavior:none; position:fixed; }
+html, body { width:100%; height:100%; overflow:hidden; background:var(--bg-dark); color:var(--text-primary); font-family:'Rajdhani',sans-serif; user-select:none; -webkit-user-select:none; overscroll-behavior:none; position:fixed; touch-action:pan-y; }
 #app { width:100%; height:100%; display:flex; flex-direction:column; position:relative; overflow:hidden; }
+button { touch-action:manipulation; cursor:pointer; }
 
 /* ═══ PARTICLE CANVAS ═══ */
 #particles { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:0; }
@@ -95,7 +96,7 @@ html, body { width:100%; height:100%; overflow:hidden; background:var(--bg-dark)
 .btn-sm { padding:10px 20px; font-size:13px; }
 
 /* Ripple effect */
-.ripple { position:absolute; border-radius:50%; background:rgba(255,255,255,0.3); transform:scale(0); animation:rippleAnim .6s ease-out; pointer-events:none; }
+.ripple { position:absolute; border-radius:50%; background:rgba(255,255,255,0.2); transform:scale(0); animation:rippleAnim .6s ease-out; pointer-events:none !important; touch-action:none; z-index:0; }
 @keyframes rippleAnim { to{transform:scale(4);opacity:0} }
 
 /* ═══ GAME SCREEN ═══ */

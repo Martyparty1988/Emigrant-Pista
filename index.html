@@ -203,7 +203,6 @@ if('serviceWorker' in navigator) {
   caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
-document.addEventListener('touchend',e=>{if(e.target.closest('button'))e.preventDefault();},{passive:false});
 </script>
 </body>
 </html>
