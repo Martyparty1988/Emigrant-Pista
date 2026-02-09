@@ -7,63 +7,151 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Pišta">
 <link rel="apple-touch-icon" href="icons/icon-180x180.png">
-<meta name="theme-color" content="#1a1a2e">
+<meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <title>Imigrant Pišta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;}
-html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;user-select:none;-webkit-user-select:none;position:fixed;font-family:'Segoe UI',system-ui,sans-serif;}
-canvas{display:block;width:100%;height:100%;touch-action:none;}
-button{touch-action:manipulation;cursor:pointer;}
-#ui{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10;}
-#hud{position:absolute;top:env(safe-area-inset-top,0);left:0;width:100%;padding:8px 16px;display:flex;justify-content:space-between;align-items:center;pointer-events:none;}
-.hud-item{background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);padding:6px 14px;border-radius:20px;color:#fff;font-size:15px;font-weight:700;letter-spacing:0.5px;border:1px solid rgba(255,255,255,0.1);}
-.hud-item .emoji{margin-right:4px;}
-#overlay{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:auto;gap:16px;text-align:center;color:#fff;}
-#overlay.hidden{display:none;pointer-events:none;}
-.overlay-bg{position:absolute;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}
-.overlay-content{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:14px;padding:0 32px;max-width:360px;}
-.overlay-icon{font-size:80px;filter:drop-shadow(0 4px 20px rgba(0,0,0,0.5));animation:bounce 2s ease-in-out infinite;}
-@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
-.overlay-title{font-size:36px;font-weight:900;text-shadow:0 2px 20px rgba(0,0,0,0.5);}
-.overlay-sub{font-size:14px;color:rgba(255,255,255,0.7);line-height:1.6;}
-.overlay-score{display:flex;gap:20px;}
-.score-box{background:rgba(255,255,255,0.1);border-radius:12px;padding:10px 18px;display:flex;flex-direction:column;align-items:center;border:1px solid rgba(255,255,255,0.1);}
-.score-val{font-size:24px;font-weight:900;color:#facc15;}
-.score-label{font-size:9px;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,0.5);margin-top:2px;}
-.btn-play{padding:16px 48px;background:linear-gradient(135deg,#facc15,#f97316);color:#000;border:none;border-radius:14px;font-size:18px;font-weight:800;letter-spacing:1px;text-transform:uppercase;box-shadow:0 4px 30px rgba(250,204,21,0.4);transition:transform .15s;}
-.btn-play:active{transform:scale(0.95);}
-.controls-hint{font-size:11px;color:rgba(255,255,255,0.4);}
-#combo-display{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;font-size:48px;font-weight:900;color:#facc15;text-shadow:0 0 30px rgba(250,204,21,0.6);opacity:0;transition:opacity 0.3s;}
-#combo-display.show{opacity:1;animation:comboPopIn 0.4s cubic-bezier(.17,.67,.24,1.2);}
-@keyframes comboPopIn{from{transform:translate(-50%,-50%) scale(0.5)}to{transform:translate(-50%,-50%) scale(1)}}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
+html,body{width:100%;height:100%;overflow:hidden;background:#0f172a;user-select:none;-webkit-user-select:none;position:fixed;font-family:'Fredoka',system-ui,sans-serif}
+canvas{display:block;width:100%;height:100%;touch-action:none}
+button{touch-action:manipulation;cursor:pointer;font-family:inherit}
+#ui{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10}
+
+/* HUD */
+#hud{position:absolute;top:env(safe-area-inset-top,8px);left:0;width:100%;padding:8px 12px;display:flex;justify-content:space-between;align-items:center}
+.hud-pill{background:rgba(0,0,0,0.55);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding:6px 14px;border-radius:20px;color:#fff;font-size:14px;font-weight:600;display:flex;align-items:center;gap:5px;border:1px solid rgba(255,255,255,0.08)}
+.hud-pill .icon{font-size:16px}
+
+/* Zone banner */
+#zone-banner{position:absolute;top:60px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);padding:4px 16px;border-radius:12px;color:#94a3b8;font-size:11px;letter-spacing:2px;text-transform:uppercase;opacity:0;transition:opacity 0.5s}
+#zone-banner.show{opacity:1}
+
+/* Power-up indicator */
+#powerup-bar{position:absolute;top:100px;left:50%;transform:translateX(-50%);display:flex;gap:8px}
+.pu-active{background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);padding:4px 12px;border-radius:12px;font-size:12px;color:#fff;display:flex;align-items:center;gap:4px;animation:puPulse 1s ease-in-out infinite}
+@keyframes puPulse{0%,100%{opacity:1}50%{opacity:0.6}}
+
+/* Overlay */
+#overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:auto;color:#fff;transition:opacity 0.3s}
+#overlay.hidden{opacity:0;pointer-events:none}
+.ov-bg{position:absolute;inset:0;background:rgba(15,23,42,0.85);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.ov-content{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:12px;padding:0 28px;max-width:380px;width:100%}
+.ov-icon{font-size:72px;animation:ovBounce 2.5s ease-in-out infinite}
+@keyframes ovBounce{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-12px) rotate(3deg)}}
+.ov-title{font-size:32px;font-weight:700;text-shadow:0 4px 20px rgba(0,0,0,0.3)}
+.ov-sub{font-size:13px;color:#94a3b8;line-height:1.6;text-align:center}
+.ov-scores{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.sc-box{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:10px 16px;display:flex;flex-direction:column;align-items:center;min-width:70px}
+.sc-val{font-size:22px;font-weight:700;color:#facc15}
+.sc-label{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#64748b;margin-top:2px}
+
+/* Buttons */
+.btn-play{padding:16px 52px;background:linear-gradient(135deg,#facc15,#f97316);color:#1e1b0f;border:none;border-radius:16px;font-size:17px;font-weight:700;letter-spacing:1px;text-transform:uppercase;box-shadow:0 6px 30px rgba(250,204,21,0.35);transition:transform 0.15s}
+.btn-play:active{transform:scale(0.94)}
+.btn-sec{padding:12px 28px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);border-radius:14px;color:#e2e8f0;font-size:14px;font-weight:600;transition:transform 0.15s}
+.btn-sec:active{transform:scale(0.94)}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.hint{font-size:11px;color:#475569;text-align:center}
+
+/* Shop panel */
+#shop-panel{position:absolute;inset:0;display:flex;flex-direction:column;pointer-events:auto;background:rgba(15,23,42,0.95);backdrop-filter:blur(12px);z-index:20;transform:translateY(100%);transition:transform 0.35s cubic-bezier(.22,1,.36,1)}
+#shop-panel.open{transform:translateY(0)}
+.shop-header{display:flex;justify-content:space-between;align-items:center;padding:env(safe-area-inset-top,12px) 16px 12px;border-bottom:1px solid rgba(255,255,255,0.06)}
+.shop-title{font-size:18px;font-weight:700;color:#fff}
+.shop-coins{color:#facc15;font-size:15px;font-weight:600}
+.shop-close{background:rgba(255,255,255,0.08);border:none;border-radius:50%;width:36px;height:36px;color:#fff;font-size:18px}
+.shop-grid{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.char-card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:14px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px;transition:border-color 0.2s}
+.char-card.selected{border-color:rgba(250,204,21,0.4);background:rgba(250,204,21,0.06)}
+.char-card.locked{opacity:0.5}
+.char-icon{font-size:40px}
+.char-name{font-size:13px;font-weight:600;color:#e2e8f0}
+.char-price{font-size:11px;color:#facc15}
+.char-owned{font-size:11px;color:#4ade80}
+
+/* Achievements panel */
+#ach-panel{position:absolute;inset:0;display:flex;flex-direction:column;pointer-events:auto;background:rgba(15,23,42,0.95);backdrop-filter:blur(12px);z-index:20;transform:translateY(100%);transition:transform 0.35s cubic-bezier(.22,1,.36,1)}
+#ach-panel.open{transform:translateY(0)}
+.ach-grid{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;display:flex;flex-direction:column;gap:8px}
+.ach-item{display:flex;align-items:center;gap:12px;padding:12px;background:rgba(255,255,255,0.04);border-radius:12px;border:1px solid rgba(255,255,255,0.06)}
+.ach-item.done{border-color:rgba(250,204,21,0.2);background:rgba(250,204,21,0.04)}
+.ach-item.locked{opacity:0.4}
+.ach-ic{font-size:28px;flex-shrink:0}
+.ach-info{flex:1}
+.ach-name{font-size:14px;font-weight:600;color:#e2e8f0}
+.ach-desc{font-size:11px;color:#64748b;margin-top:2px}
+.ach-reward{font-size:11px;color:#facc15;font-weight:600}
+
+/* Toast */
+.toast{position:fixed;top:calc(env(safe-area-inset-top,8px) + 50px);left:50%;transform:translateX(-50%);background:rgba(250,204,21,0.15);backdrop-filter:blur(16px);border:1px solid rgba(250,204,21,0.2);border-radius:14px;padding:10px 20px;display:flex;align-items:center;gap:10px;z-index:200;pointer-events:none;animation:toastIn 0.4s cubic-bezier(.22,1,.36,1),toastOut 0.4s ease 2.2s forwards;color:#fff;font-size:13px;font-weight:600;white-space:nowrap}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(-20px) scale(0.9)}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
+@keyframes toastOut{to{opacity:0;transform:translateX(-50%) translateY(-10px)}}
+.toast .t-icon{font-size:22px}
+
+/* Combo */
+#combo{position:absolute;top:45%;left:50%;transform:translate(-50%,-50%);pointer-events:none;font-size:42px;font-weight:700;color:#facc15;text-shadow:0 0 20px rgba(250,204,21,0.5);opacity:0;transition:opacity 0.3s}
+#combo.show{opacity:1;animation:comboPop 0.35s cubic-bezier(.22,1,.36,1)}
+@keyframes comboPop{from{transform:translate(-50%,-50%) scale(0.5)}to{transform:translate(-50%,-50%) scale(1)}}
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
 <div id="ui">
-  <div id="hud">
-    <div class="hud-item"><span class="emoji">🏃</span><span id="hud-score">0</span></div>
-    <div class="hud-item"><span class="emoji">💰</span><span id="hud-coins">0</span></div>
-    <div class="hud-item"><span class="emoji">🏆</span><span id="hud-best">0</span></div>
+  <div id="hud" style="display:none">
+    <div class="hud-pill"><span class="icon">🏃</span><span id="h-score">0</span></div>
+    <div class="hud-pill"><span class="icon">💰</span><span id="h-coins">0</span></div>
+    <div class="hud-pill"><span class="icon">🏆</span><span id="h-best">0</span></div>
   </div>
-  <div id="combo-display"></div>
+  <div id="zone-banner"></div>
+  <div id="powerup-bar"></div>
+  <div id="combo"></div>
+
+  <!-- MAIN OVERLAY -->
   <div id="overlay">
-    <div class="overlay-bg"></div>
-    <div class="overlay-content">
-      <div class="overlay-icon" id="ov-icon">👷</div>
-      <div class="overlay-title" id="ov-title">IMIGRANT PIŠTA</div>
-      <div class="overlay-sub" id="ov-sub">Přeběhni město, vyhni se celníkům,<br>sbírej peníze a utíkej!</div>
-      <div class="overlay-score" id="ov-scores" style="display:none">
-        <div class="score-box"><span class="score-val" id="ov-score-val">0</span><span class="score-label">Skóre</span></div>
-        <div class="score-box"><span class="score-val" id="ov-coins-val">0</span><span class="score-label">Mince</span></div>
-        <div class="score-box"><span class="score-val" id="ov-best-val">0</span><span class="score-label">Rekord</span></div>
+    <div class="ov-bg"></div>
+    <div class="ov-content">
+      <div class="ov-icon" id="ov-icon">👷</div>
+      <div class="ov-title" id="ov-title">IMIGRANT PIŠTA</div>
+      <div class="ov-sub" id="ov-sub">Přeběhni město, přeskoč řeku,<br>vyhni se autům a sbírej mince!</div>
+      <div class="ov-scores" id="ov-scores" style="display:none">
+        <div class="sc-box"><span class="sc-val" id="os-score">0</span><span class="sc-label">Skóre</span></div>
+        <div class="sc-box"><span class="sc-val" id="os-coins">0</span><span class="sc-label">Mince</span></div>
+        <div class="sc-box"><span class="sc-val" id="os-best">0</span><span class="sc-label">Rekord</span></div>
       </div>
-      <button class="btn-play" id="btn-start">ZAČÍT HRU</button>
-      <div class="controls-hint" id="ov-hint">Swipe nahoru / dolů / doleva / doprava<br>nebo šipky na klávesnici</div>
+      <button class="btn-play" id="btn-start">HRÁT</button>
+      <div class="btn-row">
+        <button class="btn-sec" id="btn-shop">👷 Postavy</button>
+        <button class="btn-sec" id="btn-ach">🏆 Achievementy</button>
+      </div>
+      <div class="hint" id="ov-hint">Klikni nebo swipni pro pohyb</div>
     </div>
   </div>
+
+  <!-- SHOP -->
+  <div id="shop-panel">
+    <div class="shop-header">
+      <span class="shop-title">👷 Postavy</span>
+      <span class="shop-coins" id="shop-coins">💰 0</span>
+      <button class="shop-close" id="shop-close">✕</button>
+    </div>
+    <div class="shop-grid" id="shop-grid"></div>
+  </div>
+
+  <!-- ACHIEVEMENTS -->
+  <div id="ach-panel">
+    <div class="shop-header">
+      <span class="shop-title">🏆 Achievementy</span>
+      <span class="shop-coins" id="ach-count">0/0</span>
+      <button class="shop-close" id="ach-close">✕</button>
+    </div>
+    <div class="ach-grid" id="ach-grid"></div>
+  </div>
 </div>
+
+<script src="three.min.js"></script>
+<script>if(typeof THREE==='undefined'){const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';document.head.appendChild(s);}</script>
 <script src="app.js"></script>
 <script>
 if('serviceWorker' in navigator){
