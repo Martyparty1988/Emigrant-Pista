@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pista-v3.0';
+const CACHE_NAME = 'pista-v3.1-' + Date.now();
 const ASSETS = [
   '/',
   '/index.html',

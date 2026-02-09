@@ -195,7 +195,14 @@
 
 <script src="app.js"></script>
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+// Force clear old service workers and caches
+if('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(r => r.unregister());
+  });
+  caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
 document.addEventListener('touchend',e=>{if(e.target.closest('button'))e.preventDefault();},{passive:false});
 </script>
 </body>
