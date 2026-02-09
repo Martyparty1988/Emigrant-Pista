@@ -1,802 +1,828 @@
-/* ═══════════════════════════════════════════════════
-   IMIGRANT PIŠTA v2.0 — Complete Game Engine
-   Shop, Upgrades, Achievements, Skills, Story, Map
-   ═══════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════
+   IMIGRANT PIŠTA — Crossy Road Arcade
+   ═══════════════════════════════════════════ */
 
-const $ = id => document.getElementById(id);
-const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-const rand = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
-const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
 
-/* ─── DATA ─── */
+/* ─── CONFIG ─── */
+const COLS = 9;          // grid columns
+const LANE_TYPES = ['safe','road','road','rail','road','safe','road','road','rail'];
+const PLAYER_COL_START = 4;
 
-const TASKS = [
-  { name:'Instalace solárních panelů', desc:'Instaluj panely na střechu haly. Práce venku — větší riziko.', reward:120, effort:3, riskMod:15, icon:'☀️', type:'Stavba', xp:15 },
-  { name:'Kopání základů', desc:'Vykopej základy. Těžká práce, ale daleko od cest.', reward:80, effort:2, riskMod:8, icon:'⛏️', type:'Manuální', xp:10 },
-  { name:'Elektroinstalace', desc:'Propoj kabeláž v domě. Práce uvnitř — menší riziko.', reward:150, effort:4, riskMod:10, icon:'⚡', type:'Odborná', xp:20 },
-  { name:'Malování fasády', desc:'Natři fasádu domu. Viditelné z ulice.', reward:90, effort:2, riskMod:20, icon:'🎨', type:'Stavba', xp:10 },
-  { name:'Noční úklid skladu', desc:'Ukliď sklad přes noc. Nízké riziko.', reward:60, effort:2, riskMod:5, icon:'🧹', type:'Noční', xp:8 },
-  { name:'Montáž lešení', desc:'Postav lešení. Nebezpečná výšková práce.', reward:130, effort:3, riskMod:12, icon:'🏗️', type:'Stavba', xp:15 },
-  { name:'Rozvoz materiálu', desc:'Rozváž materiál po městě. Pozor na polici.', reward:100, effort:2, riskMod:18, icon:'🚛', type:'Transport', xp:12 },
-  { name:'Pokládka dlažby', desc:'Polož dlažbu v centru. Bezpečná práce uvnitř.', reward:110, effort:3, riskMod:7, icon:'🧱', type:'Manuální', xp:12 },
-  { name:'Svařování konstrukce', desc:'Svařuj ocelovou konstrukci. Dobře placená.', reward:170, effort:4, riskMod:12, icon:'🔥', type:'Odborná', xp:22 },
-  { name:'Sběr úrody', desc:'Pomoz na farmě za městem. Daleko od kontrol.', reward:70, effort:2, riskMod:3, icon:'🌾', type:'Zemědělství', xp:8 },
-  { name:'Oprava střechy', desc:'Oprav střechu starého domu. Výšková práce.', reward:140, effort:3, riskMod:14, icon:'🏠', type:'Stavba', xp:16 },
-  { name:'Betonování', desc:'Zalévej základy. Časový tlak.', reward:100, effort:3, riskMod:9, icon:'🪨', type:'Manuální', xp:14 },
-  { name:'Noční hlídání', desc:'Hlídej staveniště přes noc.', reward:50, effort:1, riskMod:2, icon:'🌙', type:'Noční', xp:5 },
-  { name:'Instalace oken', desc:'Vsaď okna do novostavby. Práce vyžaduje přesnost.', reward:125, effort:3, riskMod:8, icon:'🪟', type:'Odborná', xp:15 },
-  { name:'Bourací práce', desc:'Zboř starou příčku. Prašná a hlučná práce.', reward:95, effort:2, riskMod:11, icon:'🔨', type:'Manuální', xp:11 }
-];
-
-const EVENTS = {
-  patrol: [
-    { title:'Imigrační kontrola!', text:'Policejní hlídka prohledává oblast!', icon:'🚨' },
-    { title:'AI dron!', text:'Kamera s rozpoznáváním obličejů skenuje okolí.', icon:'🤖' },
-    { title:'Kontrola dokladů!', text:'Kontrolní stanoviště na křižovatce.', icon:'🛂' },
-    { title:'Tajná policie!', text:'Civilní agenti v oblasti.', icon:'🕵️' },
-    { title:'K9 jednotka!', text:'Policejní psi prohledávají staveniště.', icon:'🐕' },
-    { title:'Helikoptéra!', text:'Policejní vrtulník kroužící nad oblastí.', icon:'🚁' }
-  ],
-  positive: [
-    { title:'Tip od kamaráda', text:'Kolega varoval před kontrolou.', icon:'💬', effect:{suspicion:-10} },
-    { title:'Nalezená peněženka', text:'Našel jsi zapomenutou peněženku.', icon:'💰', effect:{money:30} },
-    { title:'Bonus od šéfa', text:'Šéf je spokojený. Dostal jsi bonus.', icon:'⭐', effect:{money:50} },
-    { title:'Energy drink', text:'Někdo nechal energy drink.', icon:'🥤', effect:{energy:25} },
-    { title:'Nový kontakt', text:'Poznal jsi spolehlivého kolegu.', icon:'🤝', effect:{stealth:8} },
-    { title:'Levné jídlo', text:'Stánek s levným jídlem.', icon:'🥙', effect:{energy:15,stamina:10} },
-    { title:'Dobrý spánek', text:'Poprvé za dlouho jsi spal dobře.', icon:'😊', effect:{energy:20,stamina:15} },
-    { title:'Lepší doklady', text:'Kamarád sehnal lepší falešné doklady.', icon:'📄', effect:{suspicion:-15,stealth:5} }
-  ],
-  negative: [
-    { title:'Zranění', text:'Pořezal ses. Bolí to.', icon:'🩹', effect:{energy:-20,stamina:-15} },
-    { title:'Podezřelý soused', text:'Soused možná zavolá policii.', icon:'👀', effect:{suspicion:12} },
-    { title:'Špatné počasí', text:'Déšť zpomalil práci.', icon:'🌧️', effect:{energy:-15,stamina:-10} },
-    { title:'Okradení', text:'Někdo ukradl část výplaty.', icon:'😤', effect:{money:-40} },
-    { title:'Nemoc', text:'Něco špatného jsi snědl.', icon:'🤒', effect:{energy:-25,stamina:-20} },
-    { title:'Šéf zuří', text:'Šéf naštvaný kvůli chybě.', icon:'😡', effect:{money:-20} },
-    { title:'Rozbitý telefon', text:'Spadl ti telefon. Ztratil jsi kontakty.', icon:'📱', effect:{stealth:-8} },
-    { title:'Falešný tip', text:'Někdo tě navedl špatně.', icon:'🤥', effect:{energy:-10} }
-  ]
+/* ─── COLORS ─── */
+const C = {
+  grass1:'#2d5a27', grass2:'#347a2c',
+  road:'#3a3a4a', roadLine:'#555570',
+  rail:'#4a3828', railTrack:'#888',
+  water:'#1a5276', waterLight:'#2178a6',
+  sidewalk:'#5a5a6e', sidewalk2:'#4e4e62',
+  building1:'#2c3e6b', building2:'#3d2c5e', building3:'#5e3a3a', building4:'#3a5e5e',
+  window:'#facc15', windowOff:'#2a2a3a',
+  player:'#facc15', playerOutline:'#b38600',
+  cop:'#3b82f6', copLight:'#ef4444',
+  coin:'#facc15', coinShine:'#fef08a',
+  tree:'#1e6b1e', treeTop:'#34d399', treeTrunk:'#5c3a1e',
+  car1:'#ef4444', car2:'#3b82f6', car3:'#a855f7', car4:'#f97316', car5:'#22d3ee',
+  train:'#64748b', trainFront:'#facc15', trainStripe:'#ef4444',
+  sky:'#1a1a2e',
 };
 
-const WEATHER = [
-  { name:'Jasno', emoji:'☀️', energyMod:0, riskMod:5 },
-  { name:'Oblačno', emoji:'⛅', energyMod:0, riskMod:0 },
-  { name:'Déšť', emoji:'🌧️', energyMod:-10, riskMod:-5 },
-  { name:'Mlha', emoji:'🌫️', energyMod:-5, riskMod:-15 },
-  { name:'Sníh', emoji:'❄️', energyMod:-15, riskMod:-10 },
-  { name:'Bouřka', emoji:'⛈️', energyMod:-20, riskMod:-20 },
-  { name:'Horko', emoji:'🔥', energyMod:-12, riskMod:3 }
-];
-
-const SHOP_ITEMS = [
-  { id:'hardhat', name:'Helma', desc:'−5 energie při práci', price:80, icon:'⛑️', owned:false, effect:{workEnergySave:5} },
-  { id:'boots', name:'Pracovní boty', desc:'+10 stamina při odpočinku', price:60, icon:'👢', owned:false, effect:{restStaminaBonus:10} },
-  { id:'fakeid', name:'Falešný průkaz', desc:'−5% podezření/den navíc', price:200, icon:'🪪', owned:false, effect:{dailySuspicionReduction:5} },
-  { id:'phone', name:'Burner telefon', desc:'+10% šance na útěk', price:120, icon:'📱', owned:false, effect:{escapeBonus:10} },
-  { id:'jacket', name:'Neviditelná bunda', desc:'+8 stealth trvale', price:150, icon:'🧥', owned:false, effect:{stealthBonus:8} },
-  { id:'toolbox', name:'Profi nářadí', desc:'Úkoly −1 effort (min 1)', price:250, icon:'🧰', owned:false, effect:{effortReduction:1} },
-  { id:'map', name:'Mapa patroly', desc:'Vidíš patroly na mapě', price:180, icon:'🗺️', owned:false, effect:{showPatrolMap:true} },
-  { id:'firstaid', name:'Lékárnička', desc:'1×/den obnov 30 energie', price:100, icon:'🩹', owned:false, uses:1, maxUses:1, effect:{healAmount:30} },
-  { id:'coffee', name:'Zásoby kávy', desc:'+15 energie každé ráno', price:90, icon:'☕', owned:false, effect:{morningEnergy:15} },
-  { id:'contacts', name:'Síť kontaktů', desc:'Úplatky −20% cena', price:160, icon:'📇', owned:false, effect:{bribeDiscount:0.2} }
-];
-
-const SKILLS = [
-  { id:'quick_hands', name:'Rychlé ruce', desc:'+1 akce/den', cost:3, icon:'✋', level:0, maxLevel:2, effect:'maxActions' },
-  { id:'shadow', name:'Stín', desc:'+4 efektivita schovávání', cost:2, icon:'👤', level:0, maxLevel:3, effect:'hideBonus' },
-  { id:'tough', name:'Otrlost', desc:'−5 ztráta energie při práci', cost:2, icon:'💎', level:0, maxLevel:3, effect:'toughness' },
-  { id:'negotiator', name:'Vyjednavač', desc:'+10% úspěšnost úplatku', cost:3, icon:'🗣️', level:0, maxLevel:2, effect:'bribeSuccess' },
-  { id:'scout', name:'Průzkumník', desc:'Ranní event vždy pozitivní', cost:5, icon:'🔭', level:0, maxLevel:1, effect:'scoutMorning' },
-  { id:'endurance', name:'Výdrž', desc:'Lepší noční regenerace', cost:2, icon:'🏃', level:0, maxLevel:3, effect:'nightStamina' },
-  { id:'streetwise', name:'Znalost ulic', desc:'Patroly −5% šance tě najít', cost:4, icon:'🏙️', level:0, maxLevel:2, effect:'patrolAvoid' },
-  { id:'hustler', name:'Hustler', desc:'+15% bonus na odměnu', cost:4, icon:'💵', level:0, maxLevel:2, effect:'rewardBonus' }
-];
-
-const ACHIEVEMENTS = [
-  { id:'first_day', name:'První den', desc:'Přežij první den', icon:'🌅', cond:s=>s.day>=2 },
-  { id:'week', name:'Týden', desc:'Přežij 7 dní', icon:'📅', cond:s=>s.day>=7 },
-  { id:'month', name:'Měsíc', desc:'Přežij 30 dní', icon:'🗓️', cond:s=>s.day>=30 },
-  { id:'rich', name:'Boháč', desc:'Měj 500€ najednou', icon:'💎', cond:s=>s.money>=500 },
-  { id:'millionaire', name:'Milionář', desc:'Celkem vydělej 2000€', icon:'🏆', cond:s=>s.totalEarned>=2000 },
-  { id:'ghost', name:'Duch', desc:'Sniž podezření z 40%+ na 0%', icon:'👻', cond:s=>s.suspicion===0&&s.peakSuspicion>=40 },
-  { id:'survivor', name:'Přeživší', desc:'Přežij s energií pod 10%', icon:'💀', cond:s=>s.energy<=10&&s.energy>0 },
-  { id:'shopper', name:'Nakupovač', desc:'Kup 5 věcí', icon:'🛒', cond:s=>s.itemsBought>=5 },
-  { id:'skilled', name:'Odborník', desc:'Odemkni 3 dovednosti', icon:'🎯', cond:s=>s.skillsUnlocked>=3 },
-  { id:'escape_artist', name:'Escape Artist', desc:'Unikni 5× patrole', icon:'🏃', cond:s=>s.patrolsEscaped>=5 },
-  { id:'bribe_master', name:'Korupčník', desc:'10× úspěšný úplatek', icon:'💸', cond:s=>s.bribesSuccessful>=10 },
-  { id:'hard_worker', name:'Dříč', desc:'Splň 20 úkolů', icon:'🔨', cond:s=>s.tasksCompleted>=20 }
-];
-
-const BLACK_MARKET = [
-  { name:'Falešný pas', desc:'−40% podezření', price:300, icon:'📕', effect:{suspicion:-40}, rare:true },
-  { name:'Informátor', desc:'3 dny bez patrolí', price:250, icon:'🕶️', effect:{patrolImmunity:3}, rare:true },
-  { name:'Únikový vůz', desc:'Auto-únik z příští patroly', price:200, icon:'🚗', effect:{autoEscape:1}, rare:false },
-  { name:'Lékařská péče', desc:'Plná obnova energie a staminy', price:150, icon:'🏥', effect:{fullHeal:true}, rare:false },
-  { name:'VIP kontakt', desc:'+30 stealth, −20 podezření', price:350, icon:'🎩', effect:{stealth:30,suspicion:-20}, rare:true },
-  { name:'Schengen doklady', desc:'5 dní poloviční podezření', price:400, icon:'🇪🇺', effect:{halfSuspicion:5}, rare:true }
-];
-
-const STORY = [
-  { day:1, title:'Příjezd', text:'Dorazil jsi do cizí země. 50€ v kapse, falešné jméno, jeden kontakt. Musíš přežít.', icon:'✈️' },
-  { day:3, title:'Realita', text:'Třetí den. Práce je tvrdá, ale peníze tečou. Dávej si pozor na kontroly.', icon:'💡' },
-  { day:7, title:'Týden', text:'Znáš okolí a lidi. Ale AI patroly jsou chytřejší.', icon:'📅' },
-  { day:14, title:'Etablování', text:'Dva týdny. Šéf ti důvěřuje. Riziko roste. Investuj do vybavení.', icon:'🏗️' },
-  { day:21, title:'Razie', text:'Tři týdny. Zvěsti o velké razii. Nové technologie. Buď opatrný.', icon:'⚠️' },
-  { day:30, title:'Veterán', text:'Měsíc! Jsi legenda. Ale čím déle zůstáváš, tím víc tě hledají.', icon:'🏆' },
-  { day:50, title:'Legenda', text:'50 dní. Systém tě nezlomil. Jeden špatný den a je konec.', icon:'👑' }
-];
-
 /* ─── STATE ─── */
+let W, H, TILE, ROWS_VISIBLE;
+let state = 'menu'; // menu, playing, dead
+let score = 0, coins = 0, best = 0, combo = 0, comboTimer = 0;
+let playerRow = 0, playerCol = PLAYER_COL_START;
+let playerVisualX, playerVisualY, playerTargetX, playerTargetY;
+let playerBob = 0, playerAlive = true, playerDir = 0; // 0=up
+let cameraY = 0, cameraTargetY = 0;
+let lanes = [];
+let particles = [];
+let frameCount = 0;
+let lastMoveTime = 0;
+let idleTimer = 0;
+let deathReason = '';
 
-let S = {};
-let weather = WEATHER[0];
-let blackMarket = null;
-let shop = [];
-let sk = [];
-let achUnlocked = new Set();
-let patrols = [];
-let pistaPos = {x:4,y:4};
+try { best = parseInt(localStorage.getItem('pista_best') || '0'); } catch(e){}
 
-function freshState() {
-  return {
-    day:1, money:50, energy:100, suspicion:0, stamina:80, stealth:50,
-    actionsLeft:3, maxActions:3, task:null, taskProgress:0,
-    highScore:0, totalEarned:0, bestDay:0, eventLog:[],
-    patrolActive:false, gameOver:false,
-    xp:0, skillPoints:0, level:1,
-    tasksCompleted:0, patrolsEscaped:0, patrolsCaught:0,
-    bribesSuccessful:0, bribesTotal:0, itemsBought:0, skillsUnlocked:0,
-    peakSuspicion:0, peakMoney:50,
-    patrolImmunity:0, autoEscape:0, halfSuspicion:0, firstAidUsed:false,
-    storySeen:[], tab:'game'
-  };
-}
+/* ─── LANE GENERATION ─── */
 
-/* ─── INIT ─── */
+function makeLane(row) {
+  const seed = Math.abs(row * 13 + 7);
+  const difficulty = Math.min(1, Math.max(0, (Math.abs(row) - 10) / 100));
 
-function init() {
-  try {
-    S.highScore = parseInt(localStorage.getItem('ph')||'0');
-    S.bestDay = parseInt(localStorage.getItem('pd')||'0');
-    const sa = localStorage.getItem('pa');
-    if(sa) JSON.parse(sa).forEach(id => achUnlocked.add(id));
-  } catch(e){}
-  showScreen('title-screen');
-  updateTitle();
-}
+  // Row 0 is always safe start
+  if (row === 0) return { type:'safe', subtype:'grass', row, obstacles:[], moving:[], coins:[], decoration:[] };
 
-function updateTitle() {
-  const h=$('title-highscore'), d=$('title-bestday'), a=$('title-achievements');
-  if(h) h.textContent=(S.highScore||0)+'€';
-  if(d) d.textContent=S.bestDay||0;
-  if(a) a.textContent=achUnlocked.size+'/'+ACHIEVEMENTS.length;
-}
+  const r = pseudoRandom(seed);
+  let type, subtype;
 
-function saveProgress() {
-  try {
-    if(S.money>S.highScore){S.highScore=S.money;localStorage.setItem('ph',S.money);}
-    if(S.day>S.bestDay){S.bestDay=S.day;localStorage.setItem('pd',S.day);}
-    localStorage.setItem('pa',JSON.stringify([...achUnlocked]));
-  } catch(e){}
-}
-
-function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  $(id)?.classList.add('active');
-}
-
-/* ─── GAME START ─── */
-
-function startGame() {
-  S = freshState();
-  S.highScore=parseInt(localStorage.getItem('ph')||'0');
-  S.bestDay=parseInt(localStorage.getItem('pd')||'0');
-  shop = SHOP_ITEMS.map(i=>({...i}));
-  sk = SKILLS.map(s=>({...s}));
-  newDay();
-  showScreen('game-screen');
-  setTimeout(()=>triggerStory(),500);
-}
-
-/* ─── NEW DAY ─── */
-
-function newDay() {
-  S.actionsLeft = S.maxActions + skVal('maxActions');
-  S.taskProgress = 0;
-  S.patrolActive = false;
-  S.firstAidUsed = false;
-
-  // Refresh first aid
-  const fa=shop.find(i=>i.id==='firstaid'&&i.owned);
-  if(fa) fa.uses=fa.maxUses;
-
-  // Pick task
-  let t; do{t=pick(TASKS);}while(t===S.task&&TASKS.length>1);
-  S.task={...t};
-  const tb=shop.find(i=>i.id==='toolbox'&&i.owned);
-  if(tb) S.task.effort=Math.max(1,S.task.effort-1);
-
-  weather=pick(WEATHER);
-
-  // Recovery
-  S.energy=clamp(S.energy+20+skVal('nightStamina')*3,0,100);
-  S.stamina=clamp(S.stamina+15+skVal('nightStamina')*5,0,100);
-  let sr=5; if(shop.find(i=>i.id==='fakeid'&&i.owned)) sr+=5;
-  S.suspicion=Math.max(0,S.suspicion-sr);
-  if(shop.find(i=>i.id==='coffee'&&i.owned)) S.energy=clamp(S.energy+15,0,100);
-
-  if(S.patrolImmunity>0) S.patrolImmunity--;
-  if(S.halfSuspicion>0) S.halfSuspicion--;
-
-  genPatrols();
-  addLog('🌅',`Den ${S.day} — ${weather.emoji} ${weather.name}`);
-
-  if(S.day>1&&Math.random()<0.3){
-    skVal('scoutMorning')>0 ? triggerEvt(pick(EVENTS.positive)) : triggerRandEvt();
-  }
-  triggerStory();
-  blackMarket=(S.day>=4&&S.day%3===1)?pick(BLACK_MARKET.filter(i=>Math.random()<(i.rare?0.4:0.7)))||pick(BLACK_MARKET.filter(i=>!i.rare)):null;
-
-  checkAch();
-  renderGame();
-}
-
-/* ─── SKILL HELPER ─── */
-function skVal(eff){ const s=sk.find(x=>x.effect===eff); return s?s.level:0; }
-
-/* ─── ACTIONS ─── */
-
-function doWork() {
-  if(S.actionsLeft<=0||S.energy<=0||S.taskProgress>=S.task.effort) return;
-  S.actionsLeft--;
-  S.taskProgress++;
-  let ec=20+Math.abs(weather.energyMod);
-  if(shop.find(i=>i.id==='hardhat'&&i.owned)) ec-=5;
-  ec-=skVal('toughness')*5;
-  S.energy-=Math.max(5,ec);
-  S.stamina-=10;
-  let ri=Math.floor(S.task.riskMod/S.task.effort)+Math.max(0,Math.floor(weather.riskMod/2));
-  if(S.halfSuspicion>0) ri=Math.floor(ri/2);
-  S.suspicion+=Math.max(1,ri);
-  S.peakSuspicion=Math.max(S.peakSuspicion,S.suspicion);
-  pistaPos={x:rand(1,7),y:rand(1,7)};
-  movePatrols();
-  addLog('🔨',`Pracuješ… ${S.taskProgress}/${S.task.effort}`);
-
-  if(S.patrolImmunity<=0&&Math.random()<(S.suspicion/180)-skVal('patrolAvoid')*0.05){
-    triggerPatrol(); return;
-  }
-  if(S.taskProgress>=S.task.effort){
-    let rw=S.task.reward+Math.floor(S.task.reward*skVal('rewardBonus')*0.15);
-    S.money+=rw; S.totalEarned+=rw; S.peakMoney=Math.max(S.peakMoney,S.money);
-    S.tasksCompleted++; gainXP(S.task.xp);
-    addLog('✅',`Hotovo! +${rw}€`);
-    if(Math.random()<0.35) triggerRandEvt();
-  }
-  clampAll(); checkAch(); checkGO(); renderGame();
-}
-
-function doHide() {
-  if(S.actionsLeft<=0) return;
-  S.actionsLeft--;
-  let red=10+Math.floor(S.stealth/5)+skVal('hideBonus')*4;
-  S.suspicion=Math.max(0,S.suspicion-red);
-  S.stealth=clamp(S.stealth+5,0,100);
-  S.energy-=5;
-  pistaPos={x:rand(0,1),y:rand(0,1)};
-  addLog('🙈',`Schovával ses. −${red}% podezření`);
-  if(Math.random()<0.12) triggerRandEvt();
-  clampAll(); checkAch(); checkGO(); renderGame();
-}
-
-function doBribe() {
-  if(S.actionsLeft<=0||S.money<30) return;
-  S.actionsLeft--; S.bribesTotal++;
-  let cost=30+rand(0,20);
-  if(shop.find(i=>i.id==='contacts'&&i.owned)) cost=Math.floor(cost*0.8);
-  const rate=0.75+skVal('bribeSuccess')*0.1;
-  if(Math.random()<rate){
-    S.money-=cost; S.suspicion=Math.max(0,S.suspicion-25);
-    S.bribesSuccessful++; addLog('💸',`Úplatek ${cost}€ fungoval! −25%`); gainXP(5);
+  if (r < 0.35) {
+    type = 'safe';
+    subtype = r < 0.15 ? 'sidewalk' : 'grass';
+  } else if (r < 0.75) {
+    type = 'road';
+    subtype = 'road';
   } else {
-    S.money-=Math.floor(cost/2); S.suspicion+=10;
-    addLog('😰',`Úplatek selhal! −${Math.floor(cost/2)}€, +10%`);
-  }
-  clampAll(); checkAch(); checkGO(); renderGame();
-}
-
-function doRest() {
-  if(S.actionsLeft<=0) return;
-  S.actionsLeft--;
-  let sg=20; if(shop.find(i=>i.id==='boots'&&i.owned)) sg+=10;
-  S.energy=clamp(S.energy+30,0,100);
-  S.stamina=clamp(S.stamina+sg,0,100);
-  addLog('😴','Odpočíváš… Energie a stamina ↑');
-  if(Math.random()<0.1) triggerRandEvt();
-  checkAch(); checkGO(); renderGame();
-}
-
-function useFirstAid() {
-  const fa=shop.find(i=>i.id==='firstaid'&&i.owned);
-  if(!fa||fa.uses<=0||S.firstAidUsed) return;
-  fa.uses--; S.firstAidUsed=true;
-  S.energy=clamp(S.energy+30,0,100);
-  addLog('🩹','Lékárnička: +30 energie');
-  renderGame();
-}
-
-function endDay() {
-  const lc=20+Math.floor(S.day/3)*5;
-  S.money-=lc;
-  addLog('🏠',`Náklady na život: −${lc}€`);
-  if(S.money<0){ gameOver('Došly ti peníze. Nepřežiješ.'); return; }
-  S.day++; saveProgress();
-  if(S.day%7===0){ S.maxActions=Math.min(5,S.maxActions+1); addLog('📈','+1 akce za den!'); }
-  newDay();
-}
-
-/* ─── XP ─── */
-
-function gainXP(n) {
-  S.xp+=n;
-  const need=S.level*50;
-  if(S.xp>=need){
-    S.xp-=need; S.level++; S.skillPoints++;
-    addLog('⬆️',`Level ${S.level}! +1 SP`);
-    showModal('⬆️',`Level ${S.level}!`,`Nová úroveň! ${S.skillPoints} SP k využití.`,[{label:'XP',value:`${S.xp}/${S.level*50}`,negative:false}],()=>renderGame());
-  }
-}
-
-function upgradeSkill(id) {
-  const s=sk.find(x=>x.id===id);
-  if(!s||s.level>=s.maxLevel||S.skillPoints<s.cost) return;
-  S.skillPoints-=s.cost; s.level++;
-  S.skillsUnlocked=sk.filter(x=>x.level>0).length;
-  addLog('🎯',`"${s.name}" → Lv.${s.level}`);
-  checkAch(); renderSkills();
-}
-
-/* ─── SHOP ─── */
-
-function buyItem(id) {
-  const it=shop.find(i=>i.id===id);
-  if(!it||it.owned||S.money<it.price) return;
-  S.money-=it.price; it.owned=true; S.itemsBought++;
-  if(it.id==='jacket') S.stealth=clamp(S.stealth+8,0,100);
-  addLog('🛒',`Koupil jsi: ${it.name}`);
-  checkAch(); renderShop(); renderGame();
-}
-
-/* ─── BLACK MARKET ─── */
-
-function buyBM() {
-  if(!blackMarket||S.money<blackMarket.price) return;
-  S.money-=blackMarket.price;
-  const e=blackMarket.effect;
-  if(e.suspicion) S.suspicion=clamp(S.suspicion+e.suspicion,0,100);
-  if(e.stealth) S.stealth=clamp(S.stealth+e.stealth,0,100);
-  if(e.fullHeal){ S.energy=100; S.stamina=100; }
-  if(e.patrolImmunity) S.patrolImmunity=e.patrolImmunity;
-  if(e.autoEscape) S.autoEscape+=e.autoEscape;
-  if(e.halfSuspicion) S.halfSuspicion=e.halfSuspicion;
-  addLog('🕶️',`Černý trh: ${blackMarket.name}`);
-  blackMarket=null; checkAch(); renderGame();
-}
-
-/* ─── PATROLS ─── */
-
-function genPatrols(){
-  const n=Math.min(4,1+Math.floor(S.day/5));
-  patrols=[];
-  for(let i=0;i<n;i++) patrols.push({x:rand(0,8),y:rand(0,8),d:rand(0,3)});
-}
-
-function movePatrols(){
-  const dirs=[{x:0,y:-1},{x:1,y:0},{x:0,y:1},{x:-1,y:0}];
-  patrols.forEach(p=>{
-    if(Math.random()<0.3) p.d=rand(0,3);
-    const d=dirs[p.d]; p.x=clamp(p.x+d.x,0,8); p.y=clamp(p.y+d.y,0,8);
-  });
-}
-
-function triggerPatrol() {
-  S.patrolActive=true;
-  const p=pick(EVENTS.patrol);
-
-  if(S.autoEscape>0){
-    S.autoEscape--; S.patrolsEscaped++;
-    addLog('🚗','Únikový vůz tě zachránil!');
-    showModal('🚗','Automatický únik!','Tvůj vůz tě odvezl do bezpečí.',[{label:'Zbývající',value:''+S.autoEscape,negative:false}],()=>{S.patrolActive=false;renderGame();});
-    return;
+    type = 'rail';
+    subtype = 'rail';
   }
 
-  $('patrol-warning')?.classList.add('active');
-  setTimeout(()=>$('patrol-warning')?.classList.remove('active'),1500);
-  $('scanner')?.classList.add('active');
-  setTimeout(()=>$('scanner')?.classList.remove('active'),2000);
+  const lane = { type, subtype, row, obstacles:[], moving:[], coins:[], decoration:[] };
 
-  let esc=S.stealth/100;
-  if(shop.find(i=>i.id==='phone'&&i.owned)) esc+=0.1;
-
-  if(Math.random()<esc){
-    S.suspicion+=5; S.patrolsEscaped++;
-    addLog('🏃','Unikl jsi!');
-    showModal(p.icon,p.title,p.text+'\n\nUnikl jsi!',[{label:'Podezření',value:'+5%',negative:true}],()=>{S.patrolActive=false;checkAch();renderGame();});
-  } else {
-    S.suspicion+=20; S.stealth=Math.max(0,S.stealth-10); S.patrolsCaught++;
-    if(S.suspicion>=100){
-      showModal(p.icon,p.title,p.text+'\n\n⛓️ Chytili tě!',[{label:'Podezření',value:'100%',negative:true}],()=>gameOver('Chytili tě! Deportace.'));
-    } else {
-      addLog('🚨','Téměř tě chytili!');
-      showModal(p.icon,p.title,p.text+'\n\nTěsně jsi unikl!',[{label:'Podezření',value:'+20%',negative:true},{label:'Stealth',value:'−10%',negative:true}],()=>{S.patrolActive=false;checkAch();renderGame();});
-    }
-  }
-}
-
-/* ─── EVENTS ─── */
-
-function triggerRandEvt(){ triggerEvt(pick(Math.random()<0.5?EVENTS.positive:EVENTS.negative)); }
-
-function triggerEvt(ev){
-  if(ev.effect) for(const[k,v]of Object.entries(ev.effect)){
-    if(k==='money') S[k]+=v; else S[k]=clamp(S[k]+v,0,100);
-  }
-  const fx=[];
-  if(ev.effect) for(const[k,v]of Object.entries(ev.effect)){
-    const lb={money:'Peníze',energy:'Energie',suspicion:'Podezření',stamina:'Stamina',stealth:'Stealth'};
-    fx.push({label:lb[k]||k,value:(v>0?'+':'')+v+(k==='money'?'€':'%'),negative:k==='suspicion'?v>0:v<0});
-  }
-  addLog(ev.icon,ev.title);
-  showModal(ev.icon,ev.title,ev.text,fx,()=>renderGame());
-}
-
-function triggerStory(){
-  const m=STORY.find(s=>s.day===S.day&&!S.storySeen.includes(s.day));
-  if(m){ S.storySeen.push(m.day); showModal(m.icon,m.title,m.text,[],()=>renderGame()); }
-}
-
-/* ─── ACHIEVEMENTS ─── */
-
-function checkAch(){
-  ACHIEVEMENTS.forEach(a=>{
-    if(!achUnlocked.has(a.id)&&a.cond(S)){
-      achUnlocked.add(a.id);
-      addLog('🏅',`Achievement: ${a.name}!`);
-      showAchToast(a);
-    }
-  });
-  saveProgress();
-}
-
-/* ─── GAME OVER ─── */
-
-function checkGO(){
-  if(S.gameOver) return;
-  if(S.suspicion>=100) gameOver('Chytili tě! Deportace.');
-  else if(S.energy<=0&&S.stamina<=0&&S.actionsLeft<=0) gameOver('Vyčerpání. Zkolaboval jsi.');
-}
-
-function gameOver(reason){
-  S.gameOver=true; saveProgress();
-  $('gameover-reason').textContent=reason;
-  $('gameover-days').textContent=S.day;
-  $('gameover-earned').textContent=S.totalEarned+'€';
-  $('gameover-final').textContent=S.money+'€';
-  $('gameover-level').textContent=S.level;
-  $('gameover-tasks').textContent=S.tasksCompleted;
-  const ge=$('gameover-escapes'); if(ge) ge.textContent=S.patrolsEscaped;
-  $('modal-overlay')?.classList.remove('active');
-  setTimeout(()=>showScreen('gameover-screen'),300);
-}
-
-/* ─── RENDER ─── */
-
-function renderGame(){
-  if(S.gameOver) return;
-
-  $('hud-money').textContent=S.money+'€';
-  $('hud-day').textContent='Den '+S.day;
-  $('hud-risk').textContent=clamp(S.suspicion,0,100)+'%';
-  $('hud-level').textContent='Lv.'+S.level;
-  $('day-title').textContent=`${S.task.icon} ${S.task.name}`;
-  $('day-weather').textContent=`${weather.emoji} ${weather.name}`;
-
-  $('task-type').textContent=S.task.type;
-  let dr=S.task.reward+Math.floor(S.task.reward*skVal('rewardBonus')*0.15);
-  $('task-reward').textContent='+'+dr+'€';
-  $('task-name').textContent=S.task.name;
-  $('task-desc').textContent=S.task.desc;
-
-  const pct=Math.min(100,(S.taskProgress/S.task.effort)*100);
-  $('progress-value').textContent=`${S.taskProgress}/${S.task.effort}`;
-  $('progress-fill').style.width=pct+'%';
-
-  const xpN=S.level*50;
-  $('xp-fill').style.width=(S.xp/xpN*100)+'%';
-  $('xp-text').textContent=`${S.xp}/${xpN} XP`;
-
-  const al=$('alert-bar');
-  if(S.suspicion>=60){ al.classList.add('active'); $('alert-text').textContent=S.suspicion>=80?'KRITICKÉ! Schovej se!':'Imigrační služba ve střehu.'; $('alert-level').textContent=S.suspicion+'%'; }
-  else al.classList.remove('active');
-
-  const ib=$('immune-banner');
-  if(S.patrolImmunity>0){ib.style.display='flex';$('immune-days').textContent=S.patrolImmunity;}
-  else ib.style.display='none';
-
-  uM('energy',S.energy); uM('suspicion',S.suspicion); uM('stamina',S.stamina); uM('stealth',S.stealth);
-
-  $('actions-left').textContent=`Akce: ${S.actionsLeft}/${S.maxActions+skVal('maxActions')}`;
-  const na=S.actionsLeft<=0, ne=S.energy<=0;
-  $('btn-work').disabled=na||ne||S.taskProgress>=S.task.effort;
-  $('btn-hide').disabled=na;
-  $('btn-bribe').disabled=na||S.money<30;
-  $('btn-rest').disabled=na;
-
-  const fab=shop.find(i=>i.id==='firstaid'&&i.owned);
-  $('btn-firstaid').style.display=(fab&&fab.uses>0&&!S.firstAidUsed)?'flex':'none';
-  $('btn-endday').style.display=(S.taskProgress>=S.task.effort||S.actionsLeft<=0)?'flex':'none';
-
-  renderBM(); renderMap(); renderFeed();
-
-  // Weather color accent
-  const wColors={Jasno:'250,204,21','Oblačno':'148,163,184','Déšť':'96,165,250',Mlha:'167,139,250','Sníh':'226,232,240','Bouřka':'129,140,248',Horko:'248,113,113'};
-  document.querySelector('.day-bar')?.style.setProperty('--weather-color',`rgba(${wColors[weather.name]||'255,255,255'},0.3)`);
-  // Progress complete state
-  const pf=$('progress-fill');
-  if(pf) pf.classList.toggle('complete',S.taskProgress>=S.task.effort);
-  // Animate HUD values
-  animateHud();
-}
-
-function uM(id,v){
-  const el=$(`meter-${id}-value`),f=$(`meter-${id}-fill`);
-  if(el) el.textContent=clamp(v,0,100)+'%';
-  if(f) f.style.width=clamp(v,0,100)+'%';
-}
-
-function renderFeed(){
-  const f=$('event-feed'); if(!f) return;
-  f.innerHTML=S.eventLog.slice(-6).map(e=>`<div class="feed-item"><span class="feed-icon">${e.icon}</span><span class="feed-text">${e.text}</span></div>`).join('');
-  f.scrollTop=f.scrollHeight;
-}
-
-function addLog(i,t){ S.eventLog.push({icon:i,text:t}); }
-
-function renderBM(){
-  const el=$('black-market'); if(!el) return;
-  if(!blackMarket){el.style.display='none';return;}
-  el.style.display='block';
-  $('bm-icon').textContent=blackMarket.icon;
-  $('bm-name').textContent=blackMarket.name;
-  $('bm-desc').textContent=blackMarket.desc;
-  $('bm-price').textContent=blackMarket.price+'€';
-  $('btn-bm-buy').disabled=S.money<blackMarket.price;
-}
-
-function renderMap(){
-  const c=$('minimap'); if(!c) return;
-  const mp=shop.find(i=>i.id==='map'&&i.owned);
-  const ctx=c.getContext('2d'), sz=c.width/9;
-  ctx.fillStyle='#080c15'; ctx.fillRect(0,0,c.width,c.height);
-  ctx.strokeStyle='rgba(56,189,248,0.04)'; ctx.lineWidth=0.5;
-  for(let i=0;i<=9;i++){
-    ctx.beginPath(); ctx.moveTo(i*sz,0); ctx.lineTo(i*sz,c.height); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0,i*sz); ctx.lineTo(c.width,i*sz); ctx.stroke();
-  }
-  if(mp) patrols.forEach(p=>{
-    const g=ctx.createRadialGradient(p.x*sz+sz/2,p.y*sz+sz/2,0,p.x*sz+sz/2,p.y*sz+sz/2,sz);
-    g.addColorStop(0,'rgba(248,113,113,0.5)'); g.addColorStop(1,'rgba(248,113,113,0)');
-    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(p.x*sz+sz/2,p.y*sz+sz/2,sz,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#f87171'; ctx.beginPath(); ctx.arc(p.x*sz+sz/2,p.y*sz+sz/2,sz*.25,0,Math.PI*2); ctx.fill();
-  });
-  const pg=ctx.createRadialGradient(pistaPos.x*sz+sz/2,pistaPos.y*sz+sz/2,0,pistaPos.x*sz+sz/2,pistaPos.y*sz+sz/2,sz*.8);
-  pg.addColorStop(0,'rgba(250,204,21,0.6)'); pg.addColorStop(1,'rgba(250,204,21,0)');
-  ctx.fillStyle=pg; ctx.beginPath(); ctx.arc(pistaPos.x*sz+sz/2,pistaPos.y*sz+sz/2,sz*.8,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle='#facc15'; ctx.beginPath(); ctx.arc(pistaPos.x*sz+sz/2,pistaPos.y*sz+sz/2,sz*.3,0,Math.PI*2); ctx.fill();
-  const d=S.suspicion/100;
-  ctx.strokeStyle=`rgba(${Math.floor(248*d+56*(1-d))},${Math.floor(113*d+189*(1-d))},${Math.floor(113*d+248*(1-d))},0.35)`;
-  ctx.lineWidth=2; ctx.strokeRect(1,1,c.width-2,c.height-2);
-}
-
-/* ─── TABS ─── */
-
-function switchTab(t){
-  S.tab=t;
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));
-  ['game','shop','skills','stats'].forEach(id=>{
-    const el=$('tab-'+id); if(el) el.style.display=id===t?'flex':'none';
-  });
-  if(t==='shop') renderShop();
-  if(t==='skills') renderSkills();
-  if(t==='stats') renderStats();
-}
-
-function renderShop(){
-  const c=$('shop-list'); if(!c) return;
-  const smd=$('shop-money-display'); if(smd) smd.textContent=S.money+'€';
-  c.innerHTML=shop.map(i=>`<div class="shop-item ${i.owned?'owned':''} ${S.money<i.price&&!i.owned?'cant-afford':''}">
-    <div class="shop-item-icon">${i.icon}</div>
-    <div class="shop-item-info"><div class="shop-item-name">${i.name}${i.owned?' <span class="owned-badge">✓</span>':''}</div><div class="shop-item-desc">${i.desc}</div></div>
-    <button class="shop-buy-btn" ${i.owned||S.money<i.price?'disabled':''} onclick="buyItem('${i.id}')">${i.owned?'Vlastníš':i.price+'€'}</button>
-  </div>`).join('');
-}
-
-function renderSkills(){
-  const c=$('skills-list'); if(!c) return;
-  $('skill-points-display').textContent=S.skillPoints;
-  c.innerHTML=sk.map(s=>`<div class="skill-item ${s.level>0?'unlocked':''} ${s.level>=s.maxLevel?'maxed':''}">
-    <div class="skill-icon">${s.icon}</div>
-    <div class="skill-info"><div class="skill-name">${s.name} <span class="skill-level">${s.level}/${s.maxLevel}</span></div><div class="skill-desc">${s.desc}</div>
-    <div class="skill-level-bar">${Array.from({length:s.maxLevel},(_,i)=>`<div class="skill-pip ${i<s.level?'filled':''}"></div>`).join('')}</div></div>
-    <button class="skill-btn" ${s.level>=s.maxLevel||S.skillPoints<s.cost?'disabled':''} onclick="upgradeSkill('${s.id}')">${s.level>=s.maxLevel?'MAX':s.cost+' SP'}</button>
-  </div>`).join('');
-}
-
-function renderStats(){
-  const c=$('stats-content'); if(!c) return;
-  c.innerHTML=`
-    <div class="stats-section"><div class="stats-title">📊 Statistiky</div><div class="stats-grid">
-      <div class="stat-row"><span>Den</span><span>${S.day}</span></div>
-      <div class="stat-row"><span>Level</span><span>${S.level}</span></div>
-      <div class="stat-row"><span>Celkem vyděláno</span><span>${S.totalEarned}€</span></div>
-      <div class="stat-row"><span>Max peněz</span><span>${S.peakMoney}€</span></div>
-      <div class="stat-row"><span>Splněných úkolů</span><span>${S.tasksCompleted}</span></div>
-      <div class="stat-row"><span>Úniků</span><span>${S.patrolsEscaped}</span></div>
-      <div class="stat-row"><span>Chycení</span><span>${S.patrolsCaught}</span></div>
-      <div class="stat-row"><span>Úplatky</span><span>${S.bribesSuccessful}/${S.bribesTotal}</span></div>
-      <div class="stat-row"><span>Koupeno</span><span>${S.itemsBought}</span></div>
-      <div class="stat-row"><span>Dovednosti</span><span>${S.skillsUnlocked}</span></div>
-      <div class="stat-row"><span>Max podezření</span><span>${S.peakSuspicion}%</span></div>
-    </div></div>
-    <div class="stats-section"><div class="stats-title">🏅 Achievementy (${achUnlocked.size}/${ACHIEVEMENTS.length})</div><div class="achievements-grid">
-      ${ACHIEVEMENTS.map(a=>`<div class="achievement ${achUnlocked.has(a.id)?'unlocked':'locked'}"><span class="ach-icon">${achUnlocked.has(a.id)?a.icon:'🔒'}</span><span class="ach-name">${achUnlocked.has(a.id)?a.name:'???'}</span>${achUnlocked.has(a.id)?`<span class="ach-desc">${a.desc}</span>`:''}</div>`).join('')}
-    </div></div>`;
-}
-
-/* ─── MODAL ─── */
-
-function showModal(icon,title,text,fx,onClose){
-  $('modal-icon').textContent=icon;
-  $('modal-title').textContent=title;
-  $('modal-text').textContent=text;
-  const ec=$('modal-effects');
-  if(fx?.length){ec.style.display='flex';ec.innerHTML=fx.map(e=>`<div class="modal-effect"><span class="modal-effect-label">${e.label}</span><span class="modal-effect-value ${e.negative?'negative':'positive'}">${e.value}</span></div>`).join('');}
-  else ec.style.display='none';
-  const a=$('modal-actions');a.innerHTML='';
-  const b=document.createElement('button');b.className='btn btn-primary btn-block';b.textContent='Pokračovat';
-  b.onclick=()=>{$('modal-overlay').classList.remove('active');onClose?.();};
-  a.appendChild(b);
-  $('modal-overlay').classList.add('active');
-}
-
-/* ─── HELPERS ─── */
-
-function clampAll(){
-  S.energy=clamp(S.energy,0,100);S.stamina=clamp(S.stamina,0,100);
-  S.stealth=clamp(S.stealth,0,100);S.suspicion=clamp(S.suspicion,0,100);
-  S.peakSuspicion=Math.max(S.peakSuspicion,S.suspicion);
-}
-
-function haptic(){ try{navigator.vibrate?.(10);}catch(e){} }
-function showHowTo(){ $('howto-overlay').classList.add('active'); }
-
-/* ═══ PARTICLE SYSTEM ═══ */
-let particles=[], particleCanvas, particleCtx;
-
-function initParticles(){
-  particleCanvas=$('particles');
-  if(!particleCanvas) return;
-  particleCtx=particleCanvas.getContext('2d');
-  resizeParticles();
-  window.addEventListener('resize',resizeParticles);
-  for(let i=0;i<40;i++) particles.push(newParticle());
-  animateParticles();
-}
-
-function resizeParticles(){
-  if(!particleCanvas) return;
-  particleCanvas.width=window.innerWidth;
-  particleCanvas.height=window.innerHeight;
-}
-
-function newParticle(){
-  return {
-    x:Math.random()*window.innerWidth,
-    y:Math.random()*window.innerHeight,
-    vx:(Math.random()-0.5)*0.3,
-    vy:(Math.random()-0.5)*0.3,
-    size:Math.random()*2+0.5,
-    alpha:Math.random()*0.3+0.05,
-    color: ['250,204,21','74,222,128','248,113,113','56,189,248','192,132,252'][Math.floor(Math.random()*5)]
-  };
-}
-
-function animateParticles(){
-  if(!particleCtx) return;
-  particleCtx.clearRect(0,0,particleCanvas.width,particleCanvas.height);
-  particles.forEach(p=>{
-    p.x+=p.vx; p.y+=p.vy;
-    if(p.x<0) p.x=particleCanvas.width;
-    if(p.x>particleCanvas.width) p.x=0;
-    if(p.y<0) p.y=particleCanvas.height;
-    if(p.y>particleCanvas.height) p.y=0;
-    particleCtx.beginPath();
-    particleCtx.arc(p.x,p.y,p.size,0,Math.PI*2);
-    particleCtx.fillStyle=`rgba(${p.color},${p.alpha})`;
-    particleCtx.fill();
-  });
-  // Draw faint connections
-  for(let i=0;i<particles.length;i++){
-    for(let j=i+1;j<particles.length;j++){
-      const dx=particles[i].x-particles[j].x, dy=particles[i].y-particles[j].y;
-      const dist=Math.sqrt(dx*dx+dy*dy);
-      if(dist<100){
-        particleCtx.beginPath();
-        particleCtx.moveTo(particles[i].x,particles[i].y);
-        particleCtx.lineTo(particles[j].x,particles[j].y);
-        particleCtx.strokeStyle=`rgba(255,255,255,${0.02*(1-dist/100)})`;
-        particleCtx.lineWidth=0.5;
-        particleCtx.stroke();
+  if (type === 'safe') {
+    lane.decoration = makeDecoSafe(row);
+    // Coins on safe lanes
+    if (Math.random() < 0.3) {
+      const cc = Math.floor(Math.random() * COLS);
+      if (!lane.decoration.some(d => d.col === cc)) {
+        lane.coins.push({ col:cc, collected:false });
       }
     }
   }
-  requestAnimationFrame(animateParticles);
+
+  if (type === 'road') {
+    const speed = (0.4 + Math.random() * 1.0 + difficulty * 2.0) * (Math.random() < 0.5 ? 1 : -1);
+    const carCount = Math.max(1, Math.floor(1 + difficulty * 3 + Math.random()));
+    for (let i = 0; i < carCount; i++) {
+      const carType = Math.floor(Math.random() * 5);
+      const len = carType === 4 ? 2 : 1;
+      lane.moving.push({
+        x: i * (COLS / Math.max(1, carCount) * 1.2) + Math.random() * 2,
+        speed,
+        type: carType,
+        len
+      });
+    }
+    if (Math.random() < 0.25) {
+      lane.coins.push({ col: Math.floor(Math.random() * COLS), collected: false });
+    }
+  }
+
+  if (type === 'rail') {
+    lane.trainSpeed = (3 + difficulty * 4) * (Math.random() < 0.5 ? 1 : -1);
+    lane.trainX = -15;
+    lane.trainTimer = 120 + Math.random() * 180;
+    lane.trainActive = false;
+    lane.trainWarning = false;
+    lane.trainLen = 10 + Math.floor(Math.random() * 6);
+    if (Math.random() < 0.2) {
+      lane.coins.push({ col: Math.floor(Math.random() * COLS), collected: false });
+    }
+  }
+
+  return lane;
 }
 
-/* ═══ RIPPLE EFFECT (iOS-safe) ═══ */
-document.addEventListener('click',e=>{
-  const btn=e.target.closest('.action-btn,.btn,.shop-buy-btn,.skill-btn,.bm-buy,.tab-btn');
-  if(!btn||btn.disabled) return;
-  requestAnimationFrame(()=>{
-    const r=document.createElement('span');
-    r.className='ripple';
-    const rect=btn.getBoundingClientRect();
-    const sz=Math.max(rect.width,rect.height)*2;
-    Object.assign(r.style,{
-      width:sz+'px', height:sz+'px',
-      left:(e.clientX-rect.left-sz/2)+'px',
-      top:(e.clientY-rect.top-sz/2)+'px',
-      pointerEvents:'none', touchAction:'none'
+function makeDecoSafe(row) {
+  const d = [];
+  const count = 1 + Math.floor(Math.random() * 2);
+  for (let i = 0; i < count; i++) {
+    // Favor edge columns for visual variety
+    const col = Math.random() < 0.6
+      ? (Math.random() < 0.5 ? Math.floor(Math.random() * 2) : 7 + Math.floor(Math.random() * 2))
+      : Math.floor(Math.random() * COLS);
+    if (!d.some(x => x.col === col)) {
+      const type = Math.random() < 0.4 ? 'tree' : (Math.random() < 0.5 ? 'bush' : 'building');
+      d.push({ col, type, height: 0.5 + Math.random() * 0.8, hue: Math.random() * 60 - 30 });
+    }
+  }
+  return d;
+}
+
+function pseudoRandom(s) { s = (s * 9301 + 49297) % 233280; return s / 233280; }
+
+function ensureLanes() {
+  const minRow = playerRow - 5;
+  const maxRow = playerRow + ROWS_VISIBLE + 10;
+  // Remove far lanes
+  lanes = lanes.filter(l => l.row >= minRow && l.row <= maxRow);
+  // Add missing
+  for (let r = minRow; r <= maxRow; r++) {
+    if (!lanes.find(l => l.row === r)) {
+      lanes.push(makeLane(r));
+    }
+  }
+  lanes.sort((a, b) => a.row - b.row);
+}
+
+/* ─── RESIZE ─── */
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  TILE = Math.floor(W / COLS);
+  ROWS_VISIBLE = Math.ceil(H / TILE) + 2;
+}
+
+/* ─── GAME INIT ─── */
+
+function startGame() {
+  state = 'playing';
+  score = 0;
+  coins = 0;
+  combo = 0;
+  comboTimer = 0;
+  playerRow = 0;
+  playerCol = PLAYER_COL_START;
+  playerAlive = true;
+  playerDir = 0;
+  idleTimer = 0;
+  lanes = [];
+  particles = [];
+  frameCount = 0;
+  cameraY = 0;
+  cameraTargetY = 0;
+  updatePlayerTarget();
+  playerVisualX = playerTargetX;
+  playerVisualY = playerTargetY;
+  ensureLanes();
+  hideOverlay();
+  updateHUD();
+}
+
+function updatePlayerTarget() {
+  playerTargetX = playerCol * TILE + TILE / 2;
+  playerTargetY = H * 0.65; // Player stays at 65% height
+  cameraTargetY = playerRow;
+}
+
+/* ─── INPUT ─── */
+
+let touchStartX = 0, touchStartY = 0, touchStartTime = 0;
+
+let moveFrame = 0;
+
+function handleInput(dir) {
+  if (state !== 'playing' || !playerAlive) return;
+  if (frameCount - moveFrame < 5) return; // 5 frame debounce (~83ms at 60fps)
+  moveFrame = frameCount;
+
+  let newCol = playerCol, newRow = playerRow;
+  if (dir === 'up') { newRow++; playerDir = 0; }
+  else if (dir === 'down') { newRow--; playerDir = 2; }
+  else if (dir === 'left') { newCol--; playerDir = 3; }
+  else if (dir === 'right') { newCol++; playerDir = 1; }
+
+  // Bounds
+  if (newCol < 0 || newCol >= COLS) return;
+  if (newRow < playerRow - 2) return; // Can't go too far back
+
+  // Check obstacle on safe lanes - only bushes/trees at edges block
+  // Actually in Crossy Road style, safe lanes never block. Just visual.
+  // Blocking only happens from vehicles and trains.
+
+  playerCol = newCol;
+  playerRow = newRow;
+  idleTimer = 0;
+
+  // Score
+  if (newRow > score) {
+    const diff = newRow - score;
+    score = newRow;
+    combo += diff;
+    comboTimer = 60;
+  }
+
+  updatePlayerTarget();
+  // Hop particles
+  spawnParticles(playerTargetX, H * 0.65, 4, '#facc15', 2);
+
+  haptic();
+}
+
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  touchStartX = t.clientX;
+  touchStartY = t.clientY;
+  touchStartTime = Date.now();
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+  e.preventDefault();
+  if (state === 'dead') { showMenu(true); return; }
+  if (state === 'menu') return;
+
+  const t = e.changedTouches[0];
+  const dx = t.clientX - touchStartX;
+  const dy = t.clientY - touchStartY;
+  const dt = Date.now() - touchStartTime;
+
+  // Tap (no significant swipe) = move forward
+  if (Math.abs(dx) < 20 && Math.abs(dy) < 20 && dt < 300) {
+    handleInput('up');
+    return;
+  }
+
+  // Swipe
+  if (Math.abs(dx) > Math.abs(dy)) {
+    handleInput(dx > 0 ? 'right' : 'left');
+  } else {
+    handleInput(dy < 0 ? 'up' : 'down');
+  }
+}, { passive: false });
+
+document.addEventListener('keydown', e => {
+  if (state === 'dead') { showMenu(true); return; }
+  if (state === 'menu') return;
+  const map = { ArrowUp:'up', ArrowDown:'down', ArrowLeft:'left', ArrowRight:'right', w:'up', s:'down', a:'left', d:'right', ' ':'up' };
+  if (map[e.key]) { e.preventDefault(); handleInput(map[e.key]); }
+});
+
+document.getElementById('btn-start').addEventListener('click', () => {
+  if (state === 'menu' || state === 'dead') startGame();
+});
+
+/* ─── UPDATE ─── */
+
+function update() {
+  if (state !== 'playing') return;
+  frameCount++;
+
+  // Camera smooth follow
+  cameraY += (cameraTargetY - cameraY) * 0.12;
+
+  // Player visual smooth
+  playerVisualX += (playerTargetX - playerVisualX) * 0.25;
+  playerVisualY += (playerTargetY - playerVisualY) * 0.25;
+  playerBob = Math.sin(frameCount * 0.15) * 2;
+
+  // Idle death timer
+  idleTimer++;
+  if (idleTimer > 300) { // ~5 seconds idle
+    die('Stál jsi moc dlouho! Celníci tě dostali.');
+    return;
+  }
+
+  // Combo timer
+  if (comboTimer > 0) {
+    comboTimer--;
+    if (comboTimer === 0) combo = 0;
+  }
+
+  // Update lanes
+  lanes.forEach(lane => {
+    // Move cars
+    if (lane.type === 'road') {
+      lane.moving.forEach(car => {
+        car.x += car.speed * 0.016 * 60;
+        // Wrap
+        const totalW = COLS + 4;
+        if (car.speed > 0 && car.x > COLS + 2) car.x = -2 - car.len;
+        if (car.speed < 0 && car.x < -2 - car.len) car.x = COLS + 2;
+      });
+    }
+    // Trains
+    if (lane.type === 'rail') {
+      if (!lane.trainActive) {
+        lane.trainTimer -= 1;
+        if (lane.trainTimer < 60 && !lane.trainWarning) {
+          lane.trainWarning = true;
+        }
+        if (lane.trainTimer <= 0) {
+          lane.trainActive = true;
+          lane.trainX = lane.trainSpeed > 0 ? -lane.trainLen - 2 : COLS + 2;
+        }
+      } else {
+        lane.trainX += lane.trainSpeed * 0.016 * 60;
+        if ((lane.trainSpeed > 0 && lane.trainX > COLS + 5) || (lane.trainSpeed < 0 && lane.trainX < -lane.trainLen - 5)) {
+          lane.trainActive = false;
+          lane.trainWarning = false;
+          lane.trainTimer = 120 + Math.random() * 240;
+          lane.trainX = -15;
+        }
+      }
+    }
+
+    // Collect coins
+    lane.coins.forEach(c => {
+      if (!c.collected && c.col === playerCol && lane.row === playerRow) {
+        c.collected = true;
+        coins++;
+        spawnParticles(c.col * TILE + TILE/2, rowToScreen(lane.row) + TILE/2, 8, '#facc15', 3);
+      }
     });
-    btn.appendChild(r);
-    r.addEventListener('animationend',()=>r.remove());
   });
-});
 
-/* ═══ ANIMATED HUD VALUES ═══ */
-let prevHud={money:0,suspicion:0};
+  // Collision check
+  checkCollision();
 
-function animateHud(){
-  const m=S.money, s=S.suspicion;
-  const moneyEl=$('hud-money'), riskEl=$('hud-risk');
-  if(m!==prevHud.money&&moneyEl){
-    moneyEl.classList.remove('flash-up','flash-down');
-    void moneyEl.offsetWidth; // reflow
-    moneyEl.classList.add(m>prevHud.money?'flash-up':'flash-down');
-  }
-  if(s!==prevHud.suspicion&&riskEl){
-    riskEl.classList.remove('flash-up','flash-down');
-    void riskEl.offsetWidth;
-    riskEl.classList.add(s>prevHud.suspicion?'flash-down':'flash-up');
-  }
-  prevHud={money:m,suspicion:s};
+  // Particles
+  particles.forEach(p => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.15;
+    p.life--;
+  });
+  particles = particles.filter(p => p.life > 0);
+
+  updateHUD();
 }
 
-/* Achievement toast function */
+function checkCollision() {
+  const lane = lanes.find(l => l.row === playerRow);
+  if (!lane) return;
 
-function showAchToast(a){
-  const t=document.createElement('div');
-  t.className='ach-toast';
-  t.innerHTML=`<span class="ach-toast-icon">${a.icon}</span><div class="ach-toast-info"><span class="ach-toast-label">Achievement!</span><span class="ach-toast-name">${a.name}</span></div>`;
-  document.body.appendChild(t);
-  setTimeout(()=>t.remove(),3200);
+  if (lane.type === 'road') {
+    lane.moving.forEach(car => {
+      const carLeft = car.x;
+      const carRight = car.x + car.len;
+      const pc = playerCol + 0.5;
+      if (pc > carLeft + 0.15 && pc < carRight - 0.15) {
+        die('Srazilo tě auto!');
+      }
+    });
+  }
+
+  if (lane.type === 'rail' && lane.trainActive) {
+    const tl = lane.trainX;
+    const tr = lane.trainX + lane.trainLen;
+    const pc = playerCol + 0.5;
+    if (pc > tl + 0.15 && pc < tr - 0.15) {
+      die('Srazil tě vlak!');
+    }
+  }
 }
 
-/* Weather colors handled in renderGame */
+function die(reason) {
+  if (!playerAlive) return;
+  playerAlive = false;
+  deathReason = reason;
+  state = 'dead';
 
-/* ═══ BOOT ═══ */
-document.addEventListener('DOMContentLoaded',()=>{
-  init();
-  initParticles();
-});
+  // Save best
+  if (score > best) {
+    best = score;
+    try { localStorage.setItem('pista_best', best); } catch(e){}
+  }
+
+  // Death particles
+  spawnParticles(playerTargetX, H * 0.65, 20, '#ef4444', 4);
+
+  // Show death screen after delay
+  setTimeout(() => showDeathScreen(), 800);
+}
+
+/* ─── DRAW ─── */
+
+function rowToScreen(row) {
+  return H * 0.65 - (row - cameraY) * TILE;
+}
+
+function draw() {
+  // Sky gradient
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+  skyGrad.addColorStop(0, '#0f0f23');
+  skyGrad.addColorStop(0.4, '#1a1a2e');
+  skyGrad.addColorStop(1, '#16213e');
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Stars
+  for (let i = 0; i < 30; i++) {
+    const sx = (i * 137 + 50) % W;
+    const sy = (i * 97 + 30) % (H * 0.4);
+    const bright = 0.3 + 0.3 * Math.sin(frameCount * 0.02 + i);
+    ctx.fillStyle = `rgba(255,255,255,${bright})`;
+    ctx.beginPath();
+    ctx.arc(sx, sy, 1, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Draw lanes back to front
+  const minVisible = Math.floor(cameraY) - 3;
+  const maxVisible = Math.ceil(cameraY) + ROWS_VISIBLE + 3;
+
+  for (let r = minVisible; r <= maxVisible; r++) {
+    const lane = lanes.find(l => l.row === r);
+    if (!lane) continue;
+    const y = rowToScreen(r);
+    if (y > H + TILE * 2 || y < -TILE * 3) continue;
+    drawLane(lane, y);
+  }
+
+  // Draw player
+  if (playerAlive || frameCount % 10 < 5) {
+    drawPlayer();
+  }
+
+  // Particles
+  particles.forEach(p => {
+    ctx.globalAlpha = p.life / p.maxLife;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+
+  // Combo display
+  if (combo >= 3 && comboTimer > 0) {
+    const cd = document.getElementById('combo-display');
+    cd.textContent = `${combo}x COMBO!`;
+    cd.classList.add('show');
+    setTimeout(() => cd.classList.remove('show'), 1000);
+  }
+}
+
+function drawLane(lane, y) {
+  const w = COLS * TILE;
+  const xOffset = (W - w) / 2;
+
+  if (lane.type === 'safe') {
+    if (lane.subtype === 'grass') {
+      ctx.fillStyle = lane.row % 2 === 0 ? C.grass1 : C.grass2;
+      ctx.fillRect(0, y, W, TILE + 1);
+    } else {
+      ctx.fillStyle = lane.row % 2 === 0 ? C.sidewalk : C.sidewalk2;
+      ctx.fillRect(0, y, W, TILE + 1);
+      // Sidewalk pattern
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < COLS; i++) {
+        ctx.strokeRect(xOffset + i * TILE + 2, y + 2, TILE - 4, TILE - 4);
+      }
+    }
+
+    // Decorations
+    lane.decoration.forEach(d => {
+      const dx = xOffset + d.col * TILE + TILE / 2;
+      const dy = y + TILE;
+      if (d.type === 'tree') drawTree(dx, dy);
+      else if (d.type === 'building') drawBuilding(dx, dy, d);
+      else if (d.type === 'bush') drawBush(dx, dy);
+    });
+
+    // Coins
+    lane.coins.forEach(c => {
+      if (!c.collected) drawCoin(xOffset + c.col * TILE + TILE / 2, y + TILE / 2);
+    });
+  }
+
+  if (lane.type === 'road') {
+    ctx.fillStyle = C.road;
+    ctx.fillRect(0, y, W, TILE + 1);
+    // Road lines
+    ctx.strokeStyle = C.roadLine;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([TILE * 0.4, TILE * 0.3]);
+    ctx.beginPath();
+    ctx.moveTo(0, y + TILE / 2);
+    ctx.lineTo(W, y + TILE / 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Cars
+    lane.moving.forEach(car => {
+      const cx = xOffset + car.x * TILE;
+      drawCar(cx, y, car, TILE);
+    });
+
+    // Coins
+    lane.coins.forEach(c => {
+      if (!c.collected) drawCoin(xOffset + c.col * TILE + TILE / 2, y + TILE / 2);
+    });
+  }
+
+  if (lane.type === 'rail') {
+    ctx.fillStyle = C.rail;
+    ctx.fillRect(0, y, W, TILE + 1);
+    // Rails
+    ctx.strokeStyle = C.railTrack;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, y + TILE * 0.3); ctx.lineTo(W, y + TILE * 0.3);
+    ctx.moveTo(0, y + TILE * 0.7); ctx.lineTo(W, y + TILE * 0.7);
+    ctx.stroke();
+    // Sleepers
+    ctx.fillStyle = '#5a4030';
+    for (let i = 0; i < W / TILE + 1; i++) {
+      ctx.fillRect(i * TILE * 0.8, y + TILE * 0.2, TILE * 0.15, TILE * 0.6);
+    }
+
+    // Warning
+    if (lane.trainWarning && !lane.trainActive) {
+      ctx.fillStyle = frameCount % 20 < 10 ? 'rgba(239,68,68,0.3)' : 'transparent';
+      ctx.fillRect(0, y, W, TILE);
+      // Warning lights
+      for (let i = 0; i < 3; i++) {
+        ctx.fillStyle = frameCount % 16 < 8 ? '#ef4444' : '#666';
+        ctx.beginPath();
+        ctx.arc(xOffset + (i * 4 + 0.5) * TILE, y + TILE / 2, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Train
+    if (lane.trainActive) {
+      const tx = xOffset + lane.trainX * TILE;
+      drawTrain(tx, y, lane.trainLen * TILE, TILE, lane.trainSpeed > 0);
+    }
+
+    // Coins
+    lane.coins.forEach(c => {
+      if (!c.collected) drawCoin(xOffset + c.col * TILE + TILE / 2, y + TILE / 2);
+    });
+  }
+}
+
+function drawPlayer() {
+  const w = COLS * TILE;
+  const xOff = (W - w) / 2;
+  const px = xOff + playerVisualX - TILE / 2;
+  const py = playerVisualY + playerBob - TILE * 0.3;
+  const sz = TILE * 0.8;
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(xOff + playerVisualX, playerVisualY + TILE * 0.4, sz * 0.4, sz * 0.15, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Body
+  ctx.fillStyle = '#e67e22';
+  roundRect(px + sz * 0.2, py + sz * 0.45, sz * 0.6, sz * 0.45, 3);
+
+  // Head
+  ctx.fillStyle = '#fdd49e';
+  ctx.beginPath();
+  ctx.arc(px + sz / 2, py + sz * 0.3, sz * 0.25, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Hard hat
+  ctx.fillStyle = C.player;
+  ctx.beginPath();
+  ctx.arc(px + sz / 2, py + sz * 0.22, sz * 0.28, Math.PI, 0);
+  ctx.fill();
+  ctx.fillRect(px + sz * 0.15, py + sz * 0.2, sz * 0.7, sz * 0.08);
+
+  // Eyes
+  const eyeOff = playerDir === 1 ? 3 : playerDir === 3 ? -3 : 0;
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.arc(px + sz * 0.4 + eyeOff, py + sz * 0.32, 2, 0, Math.PI * 2);
+  ctx.arc(px + sz * 0.6 + eyeOff, py + sz * 0.32, 2, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawTree(x, y) {
+  const s = TILE * 0.35;
+  // Trunk
+  ctx.fillStyle = C.treeTrunk;
+  ctx.fillRect(x - 3, y - s * 1.5, 6, s * 1.5);
+  // Canopy
+  ctx.fillStyle = C.tree;
+  ctx.beginPath();
+  ctx.arc(x, y - s * 1.8, s, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = C.treeTop;
+  ctx.beginPath();
+  ctx.arc(x - 2, y - s * 2, s * 0.6, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawBush(x, y) {
+  ctx.fillStyle = '#2d7a2d';
+  ctx.beginPath();
+  ctx.arc(x, y - TILE * 0.2, TILE * 0.25, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#45a045';
+  ctx.beginPath();
+  ctx.arc(x + 3, y - TILE * 0.25, TILE * 0.15, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawBuilding(x, y, d) {
+  const bw = TILE * 0.8;
+  const bh = TILE * (1.5 + d.height);
+  const colors = [C.building1, C.building2, C.building3, C.building4];
+  ctx.fillStyle = colors[Math.abs(d.col) % 4];
+  roundRect(x - bw/2, y - bh, bw, bh, 2);
+  // Windows
+  const rows = Math.floor(bh / (TILE * 0.35));
+  const cols = 2;
+  for (let wr = 0; wr < rows; wr++) {
+    for (let wc = 0; wc < cols; wc++) {
+      const lit = pseudoRandom(d.col * 100 + wr * 10 + wc + frameCount * 0.001) > 0.4;
+      ctx.fillStyle = lit ? C.window : C.windowOff;
+      ctx.fillRect(x - bw/2 + 6 + wc * (bw * 0.4), y - bh + 8 + wr * (TILE * 0.35), bw * 0.25, TILE * 0.2);
+    }
+  }
+}
+
+function drawCar(x, y, car, tile) {
+  const cw = tile * car.len * 0.9;
+  const ch = tile * 0.65;
+  const cy = y + (tile - ch) / 2;
+  const colors = [C.car1, C.car2, C.car3, C.car4, C.car5];
+  const col = colors[car.type];
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  roundRect(x + 3, cy + 3, cw, ch, 4);
+
+  // Body
+  ctx.fillStyle = col;
+  roundRect(x, cy, cw, ch, 4);
+
+  // Windshield
+  ctx.fillStyle = 'rgba(150,200,255,0.4)';
+  const wDir = car.speed > 0 ? 0.55 : 0.05;
+  roundRect(x + cw * wDir, cy + 3, cw * 0.35, ch - 6, 2);
+
+  // Headlights
+  ctx.fillStyle = car.speed > 0 ? '#facc15' : '#ef4444';
+  const hlx = car.speed > 0 ? x + cw - 3 : x + 1;
+  ctx.beginPath();
+  ctx.arc(hlx, cy + ch * 0.25, 2.5, 0, Math.PI * 2);
+  ctx.arc(hlx, cy + ch * 0.75, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawTrain(x, y, tw, th, goingRight) {
+  const ch = th * 0.8;
+  const cy = y + (th - ch) / 2;
+
+  // Body
+  ctx.fillStyle = C.train;
+  ctx.fillRect(x, cy, tw, ch);
+
+  // Stripe
+  ctx.fillStyle = C.trainStripe;
+  ctx.fillRect(x, cy + ch * 0.4, tw, ch * 0.15);
+
+  // Front
+  const fx = goingRight ? x + tw - 8 : x;
+  ctx.fillStyle = C.trainFront;
+  ctx.fillRect(fx, cy, 8, ch);
+
+  // Windows
+  ctx.fillStyle = 'rgba(200,230,255,0.5)';
+  for (let i = 0; i < tw / 25; i++) {
+    ctx.fillRect(x + 15 + i * 25, cy + 3, 15, ch * 0.35);
+  }
+}
+
+function drawCoin(x, y) {
+  const r = TILE * 0.2;
+  const pulse = 1 + Math.sin(frameCount * 0.1) * 0.15;
+
+  ctx.fillStyle = C.coin;
+  ctx.beginPath();
+  ctx.arc(x, y, r * pulse, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = C.coinShine;
+  ctx.beginPath();
+  ctx.arc(x - r * 0.2, y - r * 0.2, r * 0.35, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = '#b38600';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(x, y, r * pulse, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // € sign
+  ctx.fillStyle = '#b38600';
+  ctx.font = `bold ${r}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('€', x + 0.5, y + 1);
+}
+
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.fill();
+}
+
+/* ─── PARTICLES ─── */
+
+function spawnParticles(x, y, n, color, spd) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = Math.random() * spd + 1;
+    particles.push({
+      x, y,
+      vx: Math.cos(a) * s,
+      vy: Math.sin(a) * s - 2,
+      size: 1 + Math.random() * 3,
+      color,
+      life: 20 + Math.random() * 20,
+      maxLife: 40
+    });
+  }
+}
+
+/* ─── UI ─── */
+
+function updateHUD() {
+  document.getElementById('hud-score').textContent = score;
+  document.getElementById('hud-coins').textContent = coins;
+  document.getElementById('hud-best').textContent = best;
+}
+
+function hideOverlay() {
+  document.getElementById('overlay').classList.add('hidden');
+}
+
+function showMenu(isDeath) {
+  const ov = document.getElementById('overlay');
+  ov.classList.remove('hidden');
+  document.getElementById('ov-icon').textContent = isDeath ? '🚔' : '👷';
+  document.getElementById('ov-title').textContent = isDeath ? 'CHYTILI TĚ!' : 'IMIGRANT PIŠTA';
+  document.getElementById('ov-sub').textContent = isDeath ? deathReason : 'Přeběhni město, vyhni se celníkům,\nsbírej peníze a utíkej!';
+  document.getElementById('btn-start').textContent = isDeath ? 'ZKUSIT ZNOVU' : 'ZAČÍT HRU';
+  document.getElementById('ov-hint').textContent = isDeath ? 'Klepni kamkoli nebo stiskni tlačítko' : 'Swipe nebo tap pro pohyb · šipky na PC';
+  const scores = document.getElementById('ov-scores');
+  if (isDeath) {
+    scores.style.display = 'flex';
+    document.getElementById('ov-score-val').textContent = score;
+    document.getElementById('ov-coins-val').textContent = coins;
+    document.getElementById('ov-best-val').textContent = best;
+  } else {
+    scores.style.display = best > 0 ? 'flex' : 'none';
+    document.getElementById('ov-score-val').textContent = best;
+    document.getElementById('ov-coins-val').textContent = '−';
+    document.getElementById('ov-best-val').textContent = best;
+  }
+}
+
+function showDeathScreen() {
+  showMenu(true);
+}
+
+function haptic() { try { navigator.vibrate?.(8); } catch(e){} }
+
+/* ─── GAME LOOP ─── */
+
+function loop() {
+  ensureLanes();
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+/* ─── BOOT ─── */
+
+resize();
+window.addEventListener('resize', resize);
+showMenu(false);
+updateHUD();
+loop();

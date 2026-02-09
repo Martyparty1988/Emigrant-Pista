@@ -1,207 +1,74 @@
 <!DOCTYPE html>
 <html lang="cs">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no,maximum-scale=1">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Pišta">
-  <link rel="apple-touch-icon" href="icons/icon-180x180.png">
-  <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192x192.png">
-  <link rel="apple-touch-icon" sizes="512x512" href="icons/icon-512x512.png">
-  <meta name="theme-color" content="#06090f">
-  <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css">
-  <title>Imigrant Pišta</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no,maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pišta">
+<link rel="apple-touch-icon" href="icons/icon-180x180.png">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="manifest" href="manifest.json">
+<title>Imigrant Pišta</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;}
+html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;user-select:none;-webkit-user-select:none;position:fixed;font-family:'Segoe UI',system-ui,sans-serif;}
+canvas{display:block;width:100%;height:100%;touch-action:none;}
+button{touch-action:manipulation;cursor:pointer;}
+#ui{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10;}
+#hud{position:absolute;top:env(safe-area-inset-top,0);left:0;width:100%;padding:8px 16px;display:flex;justify-content:space-between;align-items:center;pointer-events:none;}
+.hud-item{background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);padding:6px 14px;border-radius:20px;color:#fff;font-size:15px;font-weight:700;letter-spacing:0.5px;border:1px solid rgba(255,255,255,0.1);}
+.hud-item .emoji{margin-right:4px;}
+#overlay{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:auto;gap:16px;text-align:center;color:#fff;}
+#overlay.hidden{display:none;pointer-events:none;}
+.overlay-bg{position:absolute;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}
+.overlay-content{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:14px;padding:0 32px;max-width:360px;}
+.overlay-icon{font-size:80px;filter:drop-shadow(0 4px 20px rgba(0,0,0,0.5));animation:bounce 2s ease-in-out infinite;}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.overlay-title{font-size:36px;font-weight:900;text-shadow:0 2px 20px rgba(0,0,0,0.5);}
+.overlay-sub{font-size:14px;color:rgba(255,255,255,0.7);line-height:1.6;}
+.overlay-score{display:flex;gap:20px;}
+.score-box{background:rgba(255,255,255,0.1);border-radius:12px;padding:10px 18px;display:flex;flex-direction:column;align-items:center;border:1px solid rgba(255,255,255,0.1);}
+.score-val{font-size:24px;font-weight:900;color:#facc15;}
+.score-label{font-size:9px;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,0.5);margin-top:2px;}
+.btn-play{padding:16px 48px;background:linear-gradient(135deg,#facc15,#f97316);color:#000;border:none;border-radius:14px;font-size:18px;font-weight:800;letter-spacing:1px;text-transform:uppercase;box-shadow:0 4px 30px rgba(250,204,21,0.4);transition:transform .15s;}
+.btn-play:active{transform:scale(0.95);}
+.controls-hint{font-size:11px;color:rgba(255,255,255,0.4);}
+#combo-display{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;font-size:48px;font-weight:900;color:#facc15;text-shadow:0 0 30px rgba(250,204,21,0.6);opacity:0;transition:opacity 0.3s;}
+#combo-display.show{opacity:1;animation:comboPopIn 0.4s cubic-bezier(.17,.67,.24,1.2);}
+@keyframes comboPopIn{from{transform:translate(-50%,-50%) scale(0.5)}to{transform:translate(-50%,-50%) scale(1)}}
+</style>
 </head>
 <body>
-<div id="app">
-  <!-- Particle Background -->
-  <canvas id="particles"></canvas>
-
-  <!-- TITLE SCREEN -->
-  <div id="title-screen" class="screen active">
-    <div class="title-icon">👷</div>
-    <div class="title-name">IMIGRANT<br>PIŠTA</div>
-    <div class="title-subtitle">Nelegální Práce</div>
-    <div class="title-tagline">Pracuj. Schovávej se. Přežij.<br>Každý den je boj o přežití.</div>
-    <div class="title-stats">
-      <div class="title-stat"><span class="title-stat-value" id="title-highscore">0€</span><span class="title-stat-label">Rekord</span></div>
-      <div class="title-stat"><span class="title-stat-value" id="title-bestday">0</span><span class="title-stat-label">Nejdelší</span></div>
-      <div class="title-stat"><span class="title-stat-value" id="title-achievements">0/12</span><span class="title-stat-label">Achievem.</span></div>
-    </div>
-    <div class="title-buttons">
-      <button class="btn btn-primary btn-block" onclick="startGame()">▶ ZAČÍT HRU</button>
-      <button class="btn btn-secondary btn-block btn-sm" onclick="showHowTo()">📖 Jak hrát</button>
+<canvas id="game"></canvas>
+<div id="ui">
+  <div id="hud">
+    <div class="hud-item"><span class="emoji">🏃</span><span id="hud-score">0</span></div>
+    <div class="hud-item"><span class="emoji">💰</span><span id="hud-coins">0</span></div>
+    <div class="hud-item"><span class="emoji">🏆</span><span id="hud-best">0</span></div>
+  </div>
+  <div id="combo-display"></div>
+  <div id="overlay">
+    <div class="overlay-bg"></div>
+    <div class="overlay-content">
+      <div class="overlay-icon" id="ov-icon">👷</div>
+      <div class="overlay-title" id="ov-title">IMIGRANT PIŠTA</div>
+      <div class="overlay-sub" id="ov-sub">Přeběhni město, vyhni se celníkům,<br>sbírej peníze a utíkej!</div>
+      <div class="overlay-score" id="ov-scores" style="display:none">
+        <div class="score-box"><span class="score-val" id="ov-score-val">0</span><span class="score-label">Skóre</span></div>
+        <div class="score-box"><span class="score-val" id="ov-coins-val">0</span><span class="score-label">Mince</span></div>
+        <div class="score-box"><span class="score-val" id="ov-best-val">0</span><span class="score-label">Rekord</span></div>
+      </div>
+      <button class="btn-play" id="btn-start">ZAČÍT HRU</button>
+      <div class="controls-hint" id="ov-hint">Swipe nahoru / dolů / doleva / doprava<br>nebo šipky na klávesnici</div>
     </div>
   </div>
-
-  <!-- GAME SCREEN -->
-  <div id="game-screen" class="screen">
-    <div class="game-hud">
-      <div class="hud-item"><span class="hud-label">Peníze</span><span class="hud-value money" id="hud-money">50€</span></div>
-      <div class="hud-item"><span class="hud-label">Den</span><span class="hud-value day" id="hud-day">Den 1</span></div>
-      <div class="hud-item"><span class="hud-label">Riziko</span><span class="hud-value risk" id="hud-risk">0%</span></div>
-      <div class="hud-item"><span class="hud-label">Level</span><span class="hud-value level" id="hud-level">Lv.1</span></div>
-    </div>
-    <div class="xp-bar-container">
-      <div class="xp-bar"><div class="xp-fill" id="xp-fill" style="width:0%"></div></div>
-      <div class="xp-text" id="xp-text">0/50 XP</div>
-    </div>
-    <div class="day-bar">
-      <span class="day-title" id="day-title">☀️ Úkol</span>
-      <span class="day-weather" id="day-weather">☀️ Jasno</span>
-    </div>
-    <div class="tab-bar">
-      <button class="tab-btn active" data-tab="game" onclick="switchTab('game')"><span class="tab-icon">⚔️</span>Hra</button>
-      <button class="tab-btn" data-tab="shop" onclick="switchTab('shop')"><span class="tab-icon">🛒</span>Obchod</button>
-      <button class="tab-btn" data-tab="skills" onclick="switchTab('skills')"><span class="tab-icon">🎯</span>Skilly</button>
-      <button class="tab-btn" data-tab="stats" onclick="switchTab('stats')"><span class="tab-icon">📊</span>Stats</button>
-    </div>
-
-    <!-- TAB: Game -->
-    <div class="tab-content" id="tab-game" style="display:flex">
-      <div class="alert-bar" id="alert-bar"><span class="alert-icon">🚨</span><span class="alert-text" id="alert-text"></span><span class="alert-level" id="alert-level"></span></div>
-      <div class="immune-banner" id="immune-banner">🛡️ Imunita: <strong id="immune-days">0</strong> dní</div>
-
-      <div class="task-card">
-        <div class="task-header"><span class="task-type" id="task-type">Stavba</span><span class="task-reward" id="task-reward">+120€</span></div>
-        <div class="task-name" id="task-name">Úkol</div>
-        <div class="task-desc" id="task-desc">Popis</div>
-        <div class="progress-container">
-          <div class="progress-header"><span class="progress-label">Postup</span><span class="progress-value" id="progress-value">0/3</span></div>
-          <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
-        </div>
-      </div>
-
-      <div style="display:flex;gap:10px;align-items:flex-start;">
-        <div style="flex:1">
-          <div class="meters">
-            <div class="meter"><div class="meter-header"><span class="meter-label">⚡ Energie</span><span class="meter-value" id="meter-energy-value">100%</span></div><div class="meter-track"><div class="meter-fill energy" id="meter-energy-fill" style="width:100%"></div></div></div>
-            <div class="meter"><div class="meter-header"><span class="meter-label">👁️ Podezření</span><span class="meter-value" id="meter-suspicion-value">0%</span></div><div class="meter-track"><div class="meter-fill suspicion" id="meter-suspicion-fill" style="width:0%"></div></div></div>
-            <div class="meter"><div class="meter-header"><span class="meter-label">💪 Stamina</span><span class="meter-value" id="meter-stamina-value">80%</span></div><div class="meter-track"><div class="meter-fill stamina" id="meter-stamina-fill" style="width:80%"></div></div></div>
-            <div class="meter"><div class="meter-header"><span class="meter-label">🥷 Stealth</span><span class="meter-value" id="meter-stealth-value">50%</span></div><div class="meter-track"><div class="meter-fill stealth" id="meter-stealth-fill" style="width:50%"></div></div></div>
-          </div>
-        </div>
-        <div class="minimap-wrapper">
-          <canvas id="minimap" width="82" height="82"></canvas>
-          <div class="minimap-legend">
-            <div class="legend-item"><div class="legend-dot yellow"></div>Ty</div>
-            <div class="legend-item"><div class="legend-dot red"></div>Patroly</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="black-market" id="black-market">
-        <div class="bm-header"><span class="bm-badge">🕶️ Černý trh</span></div>
-        <div class="bm-content">
-          <div class="bm-icon" id="bm-icon">📕</div>
-          <div class="bm-info"><div class="bm-name" id="bm-name">Nabídka</div><div class="bm-desc" id="bm-desc">Popis</div></div>
-          <button class="bm-buy" id="btn-bm-buy" onclick="haptic();buyBM()"><span id="bm-price">300€</span></button>
-        </div>
-      </div>
-
-      <div class="actions-header"><span class="progress-label" id="actions-left">Akce: 3/3</span></div>
-      <div class="actions-grid">
-        <button class="action-btn work" id="btn-work" onclick="haptic();doWork()"><span class="action-icon">🔨</span>Pracovat</button>
-        <button class="action-btn hide" id="btn-hide" onclick="haptic();doHide()"><span class="action-icon">🙈</span>Schovat se</button>
-        <button class="action-btn bribe" id="btn-bribe" onclick="haptic();doBribe()"><span class="action-icon">💸</span>Uplatit</button>
-        <button class="action-btn rest" id="btn-rest" onclick="haptic();doRest()"><span class="action-icon">😴</span>Odpočinek</button>
-        <button class="action-btn firstaid" id="btn-firstaid" onclick="haptic();useFirstAid()" style="display:none"><span class="action-icon">🩹</span>Lékárnička</button>
-      </div>
-      <button class="btn btn-success btn-block" id="btn-endday" onclick="haptic();endDay()" style="display:none">🌙 Ukončit den</button>
-      <div class="event-feed" id="event-feed"></div>
-    </div>
-
-    <!-- TAB: Shop -->
-    <div class="tab-content" id="tab-shop" style="display:none">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span class="progress-label">Obchod</span>
-        <span class="progress-label" style="color:var(--neon-green)" id="shop-money-display"></span>
-      </div>
-      <div id="shop-list"></div>
-    </div>
-
-    <!-- TAB: Skills -->
-    <div class="tab-content" id="tab-skills" style="display:none">
-      <div class="skills-header">
-        <span class="progress-label">Dovednosti</span>
-        <span class="sp-display">SP: <span id="skill-points-display">0</span></span>
-      </div>
-      <div id="skills-list"></div>
-    </div>
-
-    <!-- TAB: Stats -->
-    <div class="tab-content" id="tab-stats" style="display:none">
-      <div id="stats-content"></div>
-    </div>
-  </div>
-
-  <!-- GAME OVER -->
-  <div id="gameover-screen" class="screen">
-    <div class="gameover-icon">🚔</div>
-    <div class="gameover-title">KONEC HRY</div>
-    <div class="gameover-reason" id="gameover-reason">Deportace!</div>
-    <div class="gameover-stats">
-      <div class="gameover-stat"><span class="gameover-stat-value" id="gameover-days">1</span><span class="gameover-stat-label">Dní</span></div>
-      <div class="gameover-stat"><span class="gameover-stat-value" id="gameover-earned">0€</span><span class="gameover-stat-label">Vyděláno</span></div>
-      <div class="gameover-stat"><span class="gameover-stat-value" id="gameover-final">0€</span><span class="gameover-stat-label">Zůstatek</span></div>
-      <div class="gameover-stat"><span class="gameover-stat-value" id="gameover-level">1</span><span class="gameover-stat-label">Level</span></div>
-      <div class="gameover-stat"><span class="gameover-stat-value" id="gameover-tasks">0</span><span class="gameover-stat-label">Úkolů</span></div>
-      <div class="gameover-stat"><span class="gameover-stat-value" id="gameover-escapes">0</span><span class="gameover-stat-label">Úniků</span></div>
-    </div>
-    <div class="gameover-buttons">
-      <button class="btn btn-primary btn-block" onclick="startGame()">🔄 Hrát znovu</button>
-      <button class="btn btn-secondary btn-block" onclick="showScreen('title-screen');updateTitle();">🏠 Menu</button>
-    </div>
-  </div>
-
-  <!-- HOW TO PLAY -->
-  <div id="howto-overlay" class="modal-overlay">
-    <div class="modal">
-      <div class="modal-icon">📖</div>
-      <div class="modal-title">Jak hrát</div>
-      <div class="howto-content">
-        <b>🔨 Pracovat</b> — Splň úkol a vydělej. Zvyšuje riziko.<br><br>
-        <b>🙈 Schovat se</b> — Sniž podezření. Vyšší stealth = lepší.<br><br>
-        <b>💸 Uplatit</b> — Zaplať za snížení podezření.<br><br>
-        <b>😴 Odpočinek</b> — Obnov energii a staminu.<br><br>
-        <b>🛒 Obchod</b> — Helma, boty, falešné doklady…<br><br>
-        <b>🎯 Skilly</b> — Za levely skill pointy → vylepšení.<br><br>
-        <b>🕶️ Černý trh</b> — Vzácné nabídky každé 3 dny.<br><br>
-        <b>🗺️ Mapa</b> — Kup a vidíš patroly v reálném čase.<br><br>
-        <b>⚠️</b> Podezření 100% = deportace!
-      </div>
-      <div class="modal-actions">
-        <button class="btn btn-primary btn-block" onclick="document.getElementById('howto-overlay').classList.remove('active')">Rozumím!</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- EVENT MODAL -->
-  <div id="modal-overlay" class="modal-overlay">
-    <div class="modal">
-      <div class="modal-icon" id="modal-icon">🚨</div>
-      <div class="modal-title" id="modal-title">Event</div>
-      <div class="modal-text" id="modal-text">Text</div>
-      <div class="modal-effects" id="modal-effects"></div>
-      <div class="modal-actions" id="modal-actions"></div>
-    </div>
-  </div>
-
-  <div class="patrol-warning" id="patrol-warning"></div>
-  <div class="scanner" id="scanner"></div>
 </div>
-
 <script src="app.js"></script>
 <script>
-// Force clear old service workers and caches
-if('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(regs => {
-    regs.forEach(r => r.unregister());
-  });
-  caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
-  navigator.serviceWorker.register('sw.js').catch(()=>{});
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.getRegistrations().then(r=>r.forEach(x=>x.unregister()));
+  caches.keys().then(k=>k.forEach(x=>caches.delete(x)));
 }
 </script>
 </body>
