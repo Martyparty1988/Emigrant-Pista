@@ -363,7 +363,7 @@ function rebuildScene(){
 /* ─── GAME ─── */
 function startGame(){
   initAudio();state='playing';score=0;coins=0;combo=0;comboT=0;fc=0;moveFrame=0;
-  pRow=0;pCol=4;pAlive=true;pDir=0;pHopT=1;activePU=[];deathReason='';
+  pRow=0;pCol=4;pAlive=true;pDir=0;pHopT=1;activePU=[];deathReason='';lastMilestone=0;
   lanes=[];lmMap.forEach(m=>scene.remove(m));lmMap.clear();
   mkPlayer();pTX=colToX(pCol);pTZ=rowToZ(pRow);
   pMesh.position.set(pTX,0,pTZ);
@@ -382,7 +382,13 @@ function handleInput(dir){
   else if(dir==='left'){nc--;pDir=3;}else if(dir==='right'){nc++;pDir=1;}
   if(nc<0||nc>=COLS)return;
   pCol=nc;pRow=nr;
-  if(nr>score){score=nr;combo++;comboT=90;if(combo>S.maxCombo){S.maxCombo=combo;save();}}
+  if(nr>score){score=nr;combo++;comboT=90;if(combo>S.maxCombo){S.maxCombo=combo;save();}
+    // Milestone quotes
+    const ms=Q_MILESTONE.find(m=>score>=m[0]&&lastMilestone<m[0]);
+    if(ms){lastMilestone=ms[0];showToast('💬 '+ms[1]);}
+    // Combo quotes
+    if(combo===5||combo===10||combo===15||combo===20)showToast('🔥 '+rndQ(Q_COMBO));
+  }
   pTX=colToX(pCol);pTZ=rowToZ(pRow);pHopT=0;sfxHop();haptic();
 }
 cvs.addEventListener('touchstart',e=>{e.preventDefault();const t=e.touches[0];tSX=t.clientX;tSY=t.clientY;tST=Date.now();},{passive:false});
@@ -417,7 +423,9 @@ function update(){
   }
   // Zone
   const nz=getZone(pRow);
-  if(nz.name!==lastZN){lastZN=nz.name;curZone=nz;showZone(nz.name);scene.background.setHex(nz.sky);scene.fog.color.setHex(nz.fog);}
+  if(nz.name!==lastZN){lastZN=nz.name;curZone=nz;showZone(nz.name);scene.background.setHex(nz.sky);scene.fog.color.setHex(nz.fog);
+    const zi=ZONES.indexOf(nz);if(zi>=0&&Q_ZONE[zi])setTimeout(()=>showToast('💬 '+Q_ZONE[zi]),1500);
+  }
   if(comboT>0){comboT--;if(comboT===0)combo=0;}
   activePU.forEach(p=>{if(p.id!=='shield')p.dur--;});activePU=activePU.filter(p=>p.dur>0);updatePUUI();
 
@@ -519,7 +527,63 @@ function checkAchs(){
   ACHS.forEach(a=>{if(!S.achs.includes(a.id)&&a.cond(s)){S.achs.push(a.id);S.coins+=a.rw;save();showToast('🏆 '+a.name+'! +'+a.rw+'💰');}});
 }
 
-/* ─── UI ─── */
+/* ─── HLÁŠKY PIŠTY ─── */
+const Q_MENU=[
+  '„Máma řekla: jeď do Prahy, tam je práce." No, práce je. Ale taky tramvaje.',
+  '„V Užhorodu jsem přebíhal jednu silnici. Tady jich je sto."',
+  '„Kamarád říkal: Čechy jsou ráj. Zapomněl zmínit ty kamiony."',
+  '„Pracovní povolení mám. Povolení přežít dopravu ne."',
+  '„Na Ukrajině jsem se bál medvědů. Tady se bojím řidičů na D1."',
+  '„Babiččin recept: přeběhni silnici a modli se. Funguje i v Praze."',
+  '„Posílám domů peníze. A selfíčka z nemocnice."',
+  '„Víš co je nejrychlejší v Česku? Ne internet — šofér co vidí zelenou."',
+  '„Kolega říká: buď jako voda. Já říkám: nebuď pod autem."',
+  '„Na brigádě v kebabárně bylo bezpečnějš. A to tam vybuchl gril."',
+];
+const Q_DEATH_CAR=[
+  '„Řidič ani nezabrzdil. Asi mě považoval za přechod."',
+  '„Tohle auto jelo jak můj strýc Vasyl po slivovici."',
+  '„Další den, další dodávka. Aspoň měla hezkou barvu."',
+  '„Mamka volala. Říkám: jsem OK. Píšu z pod auta."',
+  '„Na Ukrajině nás učili: dívej se vlevo, vpravo. Tady to nestačí."',
+  '„Auto mě srazilo. Řidič mi aspoň zamával. Nebo to byl prostředníček?"',
+  '„Škodovka vs. Pišta: 1:0. Ale rematch bude!"',
+  '„Pojištění nemám, ale optimismus ano."',
+];
+const Q_DEATH_TRAIN=[
+  '„Ten vlak jel přesně podle jízdního řádu. Poprvé v historii."',
+  '„České dráhy konečně dorazily včas — zrovna když jsem stál na kolejích."',
+  '„Vlak nepočká. Ani na pracovní víza."',
+  '„Na Ukrajině jezdí vlaky pomalu. Tady taky, kromě TOHODLE."',
+  '„Slyšel jsem houkání. Myslel jsem že to je policie. Horší."',
+];
+const Q_DEATH_WATER=[
+  '„Plavat umím. Ale ne v bundě a s nářadím."',
+  '„V Karpatech jsou potoky. Tady jsou řeky. S proudem. A bez mostu."',
+  '„Bubliny říkají: glug glug. Pišta říká: kurňa."',
+  '„Kamarád říkal: skoč do toho. Nemyslel doslova."',
+  '„Mokrý jak po směně na mytí aut. Ale tenkrát jsem aspoň dostal zaplaceno."',
+];
+const Q_ZONE=['Centrum — kde jeden kebab stojí jako oběd pro pět lidí doma.',
+  'Předměstí — tady lidi venčí psy dražší než naše auto.',
+  'Průmyslová — tohle mi připomíná domov. Akorát víc smogu.',
+  'Přístav — kdyby tu byl trajekt domů, neváhal bych. Nebo jo?'];
+const Q_MILESTONE=[
+  [10,'„10 kroků! Dál než k výplatnímu okýnku."'],
+  [25,'„25! Už jsem dál než můj bratranec s navigací."'],
+  [50,'„50! Tohle by máma neuvěřila. Taky tomu nevěřím."'],
+  [75,'„75! Snad mi teď dají trvalej pobyt."'],
+  [100,'„100! Jsem legenda. Nebo aspoň statistika."'],
+];
+const Q_COMBO=[
+  '„Pišta frčí!"',
+  '„Jako blesk z Karpat!"',
+  '„Ani celník by mě nechytil!"',
+  '„Usain Bolt z Užhorodu!"',
+  '„Táta by brečel hrdostí!"',
+];
+function rndQ(arr){return arr[Math.floor(Math.random()*arr.length)];}
+let lastMilestone=0;
 function updateHUD(){
   document.getElementById('h-score').textContent=score;
   document.getElementById('h-coins').textContent=coins;
@@ -533,9 +597,20 @@ function showMenu(isDeath){
   const ov=document.getElementById('overlay');ov.classList.remove('hidden');
   document.getElementById('ov-icon').textContent=isDeath?'🚔':'👷';
   document.getElementById('ov-title').textContent=isDeath?'CHYTILI TĚ!':'IMIGRANT PIŠTA';
-  document.getElementById('ov-sub').textContent=isDeath?deathReason:'Přeběhni město, přeskoč řeku,\nsbírej mince a utíkej!';
+  let sub;
+  if(isDeath){
+    const base=deathReason;
+    let q='';
+    if(base.includes('auto'))q=rndQ(Q_DEATH_CAR);
+    else if(base.includes('vlak'))q=rndQ(Q_DEATH_TRAIN);
+    else if(base.includes('vod'))q=rndQ(Q_DEATH_WATER);
+    sub=base+'\n\n'+q;
+  } else {
+    sub=rndQ(Q_MENU);
+  }
+  document.getElementById('ov-sub').textContent=sub;
   document.getElementById('btn-start').textContent=isDeath?'ZKUSIT ZNOVU':'HRÁT';
-  document.getElementById('ov-hint').textContent='Klikni / tapni / swipni pro pohyb';
+  document.getElementById('ov-hint').textContent=isDeath?'Pišta se nevzdává!':'Klikni / tapni / swipni pro pohyb';
   const sc=document.getElementById('ov-scores');
   if(isDeath||S.best>0){sc.style.display='flex';document.getElementById('os-score').textContent=isDeath?score:S.best;document.getElementById('os-coins').textContent=isDeath?coins:'—';document.getElementById('os-best').textContent=S.best;}
   else sc.style.display='none';
